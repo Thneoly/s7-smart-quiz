@@ -4,7 +4,7 @@ import sys, io, os, json, re
 from difflib import SequenceMatcher
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 QDIR = os.path.join(BASE, '题库资料', 'questions')
 OUT_MD = os.path.join(BASE, '考试模拟卷', '题库.md')
 OUT_JSON = os.path.join(BASE, '考试模拟卷', '题库.json')

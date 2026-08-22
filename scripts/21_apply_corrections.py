@@ -5,7 +5,7 @@
 import sys, io, os, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 QDIR = os.path.join(BASE, '题库资料', 'questions')
 CORR = os.path.join(BASE, '题库资料', 'corrections.json')
 

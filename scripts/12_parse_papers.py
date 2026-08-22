@@ -3,7 +3,7 @@
 import sys, io, os, re, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(BASE, '考试模拟卷')
 OUT = os.path.join(BASE, '题库资料', 'papers_raw.json')
 

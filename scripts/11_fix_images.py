@@ -3,7 +3,7 @@
 import sys, io, os, re, hashlib, urllib.request
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-BASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '考试模拟卷')
+BASE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '考试模拟卷')
 IMG_DIR = os.path.join(BASE, 'images')
 os.makedirs(IMG_DIR, exist_ok=True)
 HDRS = {

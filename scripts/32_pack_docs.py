@@ -2,7 +2,7 @@
 """打包全文检索语料 docs.docpack（zip: manual/ techref/ microwin/ course/）"""
 import sys, io, os, zipfile
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(BASE, '题库资料')
 OUT = os.path.join(BASE, 'smart-quiz-app', 'src-tauri', 'resources', 'docs', 'docs.docpack')
 os.makedirs(os.path.dirname(OUT), exist_ok=True)

@@ -3,7 +3,7 @@
 import sys, io, os, re, json, shutil
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BANK_JSON = os.path.join(BASE, '考试模拟卷', '题库.json')
 PAPERS_JSON = os.path.join(BASE, '题库资料', 'papers_raw.json')
 ANS_DIR = os.path.join(BASE, '题库资料', 'answers')

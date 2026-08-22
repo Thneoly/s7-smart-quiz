@@ -5,7 +5,7 @@
 import sys, io, os, json, zipfile, re
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(BASE, 'smart-quiz-app', 'src-tauri', 'resources', 'seed', 'smart-core.smartbank')
 
 def clean_opts(opts):
