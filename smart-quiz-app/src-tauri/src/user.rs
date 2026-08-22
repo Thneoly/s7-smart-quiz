@@ -82,11 +82,6 @@ fn srs_step(s: SrsState, correct: bool) -> SrsState {
     }
 }
 
-fn srs_due(conn: &Connection, bank_id: &str, qid: &str) -> Option<String> {
-    conn.query_row("SELECT due_date FROM review_queue WHERE bank_id=?1 AND qid=?2", params![bank_id, qid],
-        |r| r.get::<_, Option<String>>(0)).ok().flatten()
-}
-
 fn srs_apply(conn: &Connection, bank_id: &str, qid: &str, correct: bool) -> Result<(), String> {
     let cur = conn.query_row(
         "SELECT COALESCE(ease,2.5),COALESCE(interval_days,0),COALESCE(repetitions,0) FROM review_queue WHERE bank_id=?1 AND qid=?2",

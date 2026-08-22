@@ -5,25 +5,20 @@ use std::io::{Read as _, Write as _};
 use std::path::Path;
 
 // ---------- 蓝图组卷（V1.1 §4.1：候选池校验 → 降级 → 跨section去重） ----------
+// 注：JSON 里另有 name/time_limit_min 字段，由前端自行使用（会话标题/限时），serde 默认忽略未知字段
 #[derive(Deserialize)]
 pub struct Blueprint {
-    pub name: String,
-    #[serde(default = "default_min")]
-    pub time_limit_min: i64,
     #[serde(default)]
     pub sections: Vec<SectionSpec>,
     #[serde(default)]
     pub allow_fallback: bool, // false=不足即报错；true=按策略降级
 }
-fn default_min() -> i64 { 90 }
 
 #[derive(Deserialize)]
 pub struct SectionSpec {
     #[serde(rename = "type")]
     pub qtype: String,               // single/multi
     pub qty: i64,
-    #[serde(default)]
-    pub score_each: f64,
     #[serde(default)]
     pub from_topics: Vec<i64>,       // topic_id，空=全部
     #[serde(default)]
@@ -124,7 +119,7 @@ fn diff_clause(d: Option<(i64, i64)>) -> String {
 }
 
 fn count_pool(conn: &Connection, qtype: &str, topics: &[i64], diff: Option<(i64, i64)>) -> Result<i64, String> {
-    let mut sql = format!(
+    let sql = format!(
         "SELECT COUNT(*) FROM questions q WHERE q.bank_id=(SELECT bank_id FROM banks WHERE is_enabled=1 ORDER BY is_builtin DESC LIMIT 1) AND q.status='active' AND q.answer_conf='high' AND q.type=?1{}{}",
         diff_clause(diff),
         if topics.is_empty() { String::new() } else {
@@ -293,9 +288,9 @@ mod tests {
         crate::bank::import(&bankconn, &seed, &tmp.join("banks"), true).unwrap();
 
         // 1) 正常组卷：40单+10多（种子库 active&high 足够）
-        let bp = Blueprint { name: "全真".into(), time_limit_min: 90, allow_fallback: false, sections: vec![
-            SectionSpec { qtype: "single".into(), qty: 40, score_each: 1.0, from_topics: vec![], difficulty: None },
-            SectionSpec { qtype: "multi".into(), qty: 10, score_each: 1.0, from_topics: vec![], difficulty: None }] };
+        let bp = Blueprint { allow_fallback: false, sections: vec![
+            SectionSpec { qtype: "single".into(), qty: 40, from_topics: vec![], difficulty: None },
+            SectionSpec { qtype: "multi".into(), qty: 10, from_topics: vec![], difficulty: None }] };
         let r = compose(&bankconn, &bp).unwrap();
         assert_eq!(r.total, 50);
         assert_eq!(r.sections[0].actual, 40);
@@ -305,13 +300,13 @@ mod tests {
         for q in &r.qids { assert!(set.insert(q.clone()), "出现重复题"); }
 
         // 2) 不足+不允许降级 → 报错
-        let bp2 = Blueprint { name: "过量".into(), time_limit_min: 90, allow_fallback: false, sections: vec![
-            SectionSpec { qtype: "single".into(), qty: 10000, score_each: 1.0, from_topics: vec![], difficulty: None }] };
+        let bp2 = Blueprint { allow_fallback: false, sections: vec![
+            SectionSpec { qtype: "single".into(), qty: 10000, from_topics: vec![], difficulty: None }] };
         assert!(compose(&bankconn, &bp2).is_err());
 
         // 3) 不足+允许降级 → 降题量并报告
-        let bp3 = Blueprint { name: "降级".into(), time_limit_min: 90, allow_fallback: true, sections: vec![
-            SectionSpec { qtype: "single".into(), qty: 10000, score_each: 1.0, from_topics: vec![], difficulty: None }] };
+        let bp3 = Blueprint { allow_fallback: true, sections: vec![
+            SectionSpec { qtype: "single".into(), qty: 10000, from_topics: vec![], difficulty: None }] };
         let r3 = compose(&bankconn, &bp3).unwrap();
         assert!(r3.sections[0].actual < 10000);
         assert!(r3.sections[0].fallback.is_some());

@@ -102,7 +102,7 @@ pub fn search(conn: &Connection, query: &str, limit: i64) -> Result<Vec<DocHit>,
         Ok(DocHit { title: r.get(0)?, path: r.get(1)?, snippet: r.get(2)? })
     }).map_err(|e| e.to_string())?;
     let mut out = Vec::new();
-    for mut h in rows {
+    for h in rows {
         if let Ok(mut h) = h {
             // 片段：找第一个命中词位置截取窗口
             let raw = h.snippet.clone();
