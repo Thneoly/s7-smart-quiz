@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { store } from './store'
-import { hasTauri } from './api'
 import HomeView from './views/HomeView.vue'
 import StudyView from './views/StudyView.vue'
 import PracticeView from './views/PracticeView.vue'
@@ -56,7 +55,6 @@ onMounted(() => {
         @click="store.go(n.key)">
         <i>{{ n.icon }}</i>{{ n.label }}
       </button>
-      <div class="env">{{ hasTauri ? '🟢 Tauri 运行中' : '🟡 浏览器 Mock' }}</div>
     </aside>
     <main class="main"><component :is="cur" /></main>
   </div>
@@ -93,7 +91,6 @@ body { background: var(--bg); color: var(--ink); font-family: system-ui, "Segoe 
   padding: 9px 12px; border-radius: 10px; cursor: pointer; font-size: .92rem; text-align: left; }
 .side button:hover { background: var(--chip); color: var(--ink); }
 .side button.on { background: var(--brand); color: var(--brand-ink); }
-.side .env { margin-top: auto; font-size: .72rem; color: var(--sub); padding: 8px 10px; }
 .main { flex: 1; padding: 22px 26px; max-width: 980px; min-width: 0; }
 h2.pt { font-size: 1.1rem; margin-bottom: 14px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
@@ -134,7 +131,7 @@ h2.pt { font-size: 1.1rem; margin-bottom: 14px; }
 @media (max-width: 760px) {
   .shell { flex-direction: column; }
   .side { width: 100%; height: auto; flex-direction: row; overflow-x: auto; position: fixed; bottom: 0; z-index: 40; border-right: none; border-top: 1px solid var(--line); padding: 6px; }
-  .side .logo, .side .env { display: none; }
+  .side .logo { display: none; }
   .side button { flex-direction: column; gap: 2px; font-size: .68rem; padding: 6px 10px; }
   .main { padding: 14px; padding-bottom: 90px; }
 }
