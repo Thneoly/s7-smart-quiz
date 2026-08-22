@@ -58,5 +58,5 @@ cd .. && ../.venv/Scripts/python.exe tests/e2e_m1.py
 ## 质量红线
 
 - main 分支保持 cargo 12 项 + E2E 67 项全绿
-- 签名私钥 `~/.s7-200smart/smartquiz.key` 永不入库（1Password 归档，见 docs/项目管理.md）
+- 签名私钥 `~/.s7-200smart/smartquiz.key` 永不入库（密码管理器/离线盘归档，见 docs/项目管理.md）
 - **版权数据（题库/语料/真题）永不提交**——.gitignore 已设防，提交前自查
