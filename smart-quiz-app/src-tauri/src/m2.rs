@@ -242,7 +242,22 @@ pub fn restore_check(zip_path: &str) -> Result<RestoreInfo, String> {
     Ok(RestoreInfo { sessions, records, created_at })
 }
 
-pub fn diagnostics(user: &Connection, dest: &str) -> Result<String, String> {
+pub fn diagnostics(user: &Connection, log_dir: Option<&Path>, dest: &str) -> Result<String, String> {
+    // 先收集日志文件（保留最近3次启动，单文件≤2MB，总量有界）
+    let mut logs: Vec<(String, Vec<u8>)> = Vec::new();
+    if let Some(dir) = log_dir {
+        if let Ok(rd) = std::fs::read_dir(dir) {
+            let mut paths: Vec<std::path::PathBuf> = rd.flatten().map(|e| e.path())
+                .filter(|p| p.extension().and_then(|x| x.to_str()) == Some("log")).collect();
+            paths.sort();
+            for p in paths {
+                if let Ok(bytes) = std::fs::read(&p) {
+                    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                    logs.push((name, bytes));
+                }
+            }
+        }
+    }
     let f = std::fs::File::create(dest).map_err(|e| e.to_string())?;
     let mut z = zip::ZipWriter::new(f);
     let opt = zip::write::SimpleFileOptions::default();
@@ -253,14 +268,46 @@ pub fn diagnostics(user: &Connection, dest: &str) -> Result<String, String> {
             "sessions": user.query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get::<_, i64>(0)).ok(),
             "answers": user.query_row("SELECT COUNT(*) FROM answer_records", [], |r| r.get::<_, i64>(0)).ok(),
             "wrong": user.query_row("SELECT COUNT(*) FROM wrong_book", [], |r| r.get::<_, i64>(0)).ok(),
-        }
+        },
+        "log_files": logs.len()
     });
     z.start_file("diagnostics.json", opt).map_err(|e| e.to_string())?;
     z.write_all(serde_json::to_string_pretty(&info).unwrap().as_bytes()).map_err(|e| e.to_string())?;
     z.start_file("privacy.txt", opt).map_err(|e| e.to_string())?;
-    z.write_all(b"This diagnostics package contains NO personal data.\nOnly app version, OS and local counts.\n").map_err(|e| e.to_string())?;
+    z.write_all(b"This diagnostics package contains NO personal data.\nContains app version, OS, local counts and log files\n(command names, timings and error messages only - no question content,\nno user input; file paths are redacted to hide the OS account name).\n").map_err(|e| e.to_string())?;
+    for (name, bytes) in logs {
+        z.start_file(format!("logs/{name}"), opt).map_err(|e| e.to_string())?;
+        z.write_all(&bytes).map_err(|e| e.to_string())?;
+    }
     z.finish().map_err(|e| e.to_string())?;
+    // 隐私：只记文件名，不记用户选择的完整保存路径（含账户名）
+    let fname = std::path::Path::new(dest).file_name()
+        .map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    log::info!(target: "diag", "诊断包已导出：{fname}");
     Ok(dest.to_string())
+}
+
+// ---------- 日志查看 ----------
+#[derive(Serialize)]
+pub struct LogView {
+    pub path: Option<String>,
+    pub lines: Vec<String>,
+}
+
+/// 读最近一次启动的日志（目录内 mtime 最新的 .log），返回末尾 tail 行。
+/// 文件≤2MB 直接整读后截尾，无性能问题。
+pub fn logs_read(dir: Option<&Path>, tail: usize) -> LogView {
+    let none = LogView { path: None, lines: Vec::new() };
+    let Some(dir) = dir else { return none };
+    let Some(file) = std::fs::read_dir(dir).ok().and_then(|rd| {
+        rd.flatten().map(|e| e.path())
+            .filter(|p| p.extension().and_then(|x| x.to_str()) == Some("log"))
+            .max_by_key(|p| p.metadata().and_then(|m| m.modified()).unwrap_or(std::time::UNIX_EPOCH))
+    }) else { return none };
+    let content = std::fs::read_to_string(&file).unwrap_or_default();
+    let all: Vec<&str> = content.lines().collect();
+    let lines: Vec<String> = all.iter().rev().take(tail).rev().map(|s| s.to_string()).collect();
+    LogView { path: Some(file.to_string_lossy().into_owned()), lines }
 }
 
 // ---------- 设置 ----------
@@ -324,6 +371,25 @@ mod tests {
         backup_user(&user, bk.to_str().unwrap()).unwrap();
         let ri = restore_check(bk.to_str().unwrap()).unwrap();
         assert_eq!(ri.sessions, 1);
+
+        // 5) 日志查看与诊断包并入日志
+        let logdir = tmp.join("logs");
+        std::fs::create_dir_all(&logdir).unwrap();
+        std::fs::write(logdir.join("smart-quiz-app_旧.log"), "旧a\n旧b\n").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        std::fs::write(logdir.join("smart-quiz-app.log"), "l1\nl2\nl3\n").unwrap();
+        let lv = logs_read(Some(&logdir), 2);
+        assert_eq!(lv.path.as_deref(), Some(logdir.join("smart-quiz-app.log").to_str().unwrap()));
+        assert_eq!(lv.lines, vec!["l2".to_string(), "l3".to_string()]);
+        let dz = tmp.join("diag.zip");
+        diagnostics(&user, Some(&logdir), dz.to_str().unwrap()).unwrap();
+        let mut zf = zip::ZipArchive::new(std::fs::File::open(&dz).unwrap()).unwrap();
+        assert_eq!(zf.by_name("logs/smart-quiz-app.log").unwrap().size(), "l1\nl2\nl3\n".len() as u64);
+        assert!(zf.by_name("logs/smart-quiz-app_旧.log").is_ok());
+        assert!(zf.by_name("privacy.txt").is_ok());
+        // 无日志目录时不报错
+        let dz2 = tmp.join("diag2.zip");
+        diagnostics(&user, None, dz2.to_str().unwrap()).unwrap();
         std::fs::remove_dir_all(&tmp).ok();
     }
 }

@@ -198,6 +198,8 @@ pub fn excel_import_into(bankconn: &Connection, path: &str, bank_name: &str) -> 
         }
     }
     tx.commit().map_err(|e| e.to_string())?;
+    // 隐私：不记题库名（用户自由输入，日志随诊断包外发）
+    log::info!(target: "excel", "Excel导入：成功{}题 跳过{}题", qs.len(), errs.len());
     Ok(ExcelImportReport { bank_id, bank_name: bank_name.into(), imported: qs.len(), skipped: errs.len(), topics: n_topics, errors: errs })
 }
 

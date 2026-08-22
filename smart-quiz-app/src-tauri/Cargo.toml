@@ -32,4 +32,6 @@ tauri-plugin-dialog = "2.7.2"
 calamine = "0.36.1"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-process = "2.3.1"
+tauri-plugin-log = "2.9.0"
+log = "0.4.33"
 

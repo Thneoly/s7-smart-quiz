@@ -76,6 +76,23 @@ export const api = {
   diagnostics: (dest: string) => invoke<string>('export_diagnostics', { dest }),
   getSetting: (key: string) => invoke<string | null>('setting_get', { key }),
   setSetting: (key: string, value: string) => invoke<null>('setting_set', { key, value }),
+
+  // 可维护性：日志
+  logsRead: (tail = 200) => invoke<LogView>('logs_read', { tail }),
+  openLogDir: () => invoke<null>('open_log_dir'),
+}
+
+export interface LogView { path: string | null; lines: string[] }
+
+// 前端异常落滚动日志（命令级打点由 Rust 侧完成，这里只上报渲染层/未捕获异常）
+export async function logFrontendError(where: string, err: unknown): Promise<void> {
+  const detail = err instanceof Error ? `${err.message}\n${err.stack ?? ''}` : String(err)
+  console.error(`[${where}]`, err)
+  if (!hasTauri) return
+  try {
+    const { error } = await import('@tauri-apps/plugin-log')
+    await error(`[${where}] ${detail}`)
+  } catch { /* 日志链路自身故障时放弃，避免递归上报 */ }
 }
 
 // ---------- M2 类型 ----------
@@ -265,6 +282,14 @@ async function mock<T>(cmd: string, args?: Record<string, any>): Promise<T> {
     }
     case 'export_session_excel': case 'backup_user': case 'export_diagnostics': return 'C:\\mock\\导出文件' as T
     case 'restore_check': return { sessions: 0, records: 0, created_at: '' } as T
+    case 'logs_read': return { path: 'C:\\mock\\logs\\smart-quiz-app.log', lines: [
+      '[19:30:01][INFO ][app] 启动 smart-quiz-app v0.1.0（mock）',
+      '[19:30:02][INFO ][seed] 导入 smart-core v1：694题 6卷 11图',
+      '[19:30:03][INFO ][session] 开始会话#1 exam「模拟卷A（mock）」87题',
+      '[19:35:00][INFO ][session] 会话#1 完成：得分85.7 对74/87计分题',
+      '[19:35:02][ERROR][cmd] export_excel_template 失败(12ms): mock: 模板导出仅应用内可用',
+    ] } as T
+    case 'open_log_dir': return null as T
     case 'docs_status': return { chunks: 0, built_at: '' } as T
     case 'docs_build': return 0 as T
     case 'excel_preview': return { total: 2, valid: 2, errors: [], sample: MQUESTIONS.slice(0, 2).map(q => ({ stem: q.stem, qtype: q.qtype, options: q.options, answer: q.answer, explain: q.explain, source: q.source, topic1: q.topics[0] ?? '未分类', topic2: '', difficulty: 3, conf: 'high' })) } as T

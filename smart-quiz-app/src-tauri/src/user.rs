@@ -115,6 +115,8 @@ pub fn start_session(user: &Connection, mode: &str, title: &str, bank_id: &str,
                   VALUES(?,?,?,?,?,?,?,?,?)",
         params![mode, title, bank_id, paper_id, time_limit_sec, qids.len() as i64, now, qid_json, "{}"])
         .map_err(|e| e.to_string())?;
+    // 隐私：不记会话标题（组卷卷名属用户自由输入，日志随诊断包外发）
+    log::info!(target: "session", "开始会话#{} {mode} {}题", user.last_insert_rowid(), qids.len());
     get_session(user, user.last_insert_rowid())
 }
 
@@ -186,6 +188,8 @@ pub fn finish_session(user: &Connection, bankconn: &Connection, session_id: i64)
     tx.execute("UPDATE sessions SET finished_at=?1,scored_qty=?2,correct_qty=?3,score=?4,duration_ms=?5 WHERE session_id=?6",
         params![now, scored, correct, score, duration, session_id]).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())?;
+    log::info!(target: "session", "会话#{session_id} 完成：得分{} 对{correct}/{scored}计分题",
+        score.map(|s| format!("{s:.1}")).unwrap_or_else(|| "—".into()));
     get_session(user, session_id)
 }
 

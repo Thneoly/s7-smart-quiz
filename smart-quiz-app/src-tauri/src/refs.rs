@@ -34,6 +34,7 @@ pub fn build_index(conn: &Connection, docpack: &Path, docs_dir: &Path, force: bo
     if !force && status(conn).chunks > 0 {
         return Ok(status(conn).chunks as usize);
     }
+    log::info!(target: "docs", "开始构建检索索引（force={force}）");
     let t0 = Instant::now();
     conn.execute_batch("DELETE FROM docs_fts; DELETE FROM docs_chunks;").map_err(|e| e.to_string())?;
 
