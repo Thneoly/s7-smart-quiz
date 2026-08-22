@@ -3,7 +3,8 @@
 import sys, io, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-stages = json.load(open('D:/PLC/s7-200/题库资料/guide_stages.json', encoding='utf-8'))['stages']
+from _data import data
+stages = json.load(open(data('题库资料', 'guide_stages.json'), encoding='utf-8'))['stages']
 print('篇数:', len(stages))
 for s in stages:
     chs = s.get('chapters', [])

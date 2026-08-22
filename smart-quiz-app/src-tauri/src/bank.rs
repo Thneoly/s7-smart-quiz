@@ -432,3 +432,82 @@ mod tests {
         std::fs::remove_dir_all(&tmp).ok();
     }
 }
+
+// ---------- Tauri 命令 ----------
+pub mod commands {
+    use super::{overview as overview_impl, list_papers as list_papers_impl,
+                paper_qids as paper_qids_impl, list_questions as list_questions_impl,
+                get_questions_by_ids as get_questions_by_ids_impl, fts_spike as fts_spike_impl,
+                import, Overview, PaperInfo, QuestionRow, SpikeResult, ImportReport};
+    use crate::telemetry::timed;
+    use crate::AppState;
+    use tauri::Manager;
+
+    #[tauri::command]
+    pub async fn bank_overview(state: tauri::State<'_, AppState>) -> Result<Overview, String> {
+        timed("bank_overview", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            overview_impl(&b)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn list_papers(state: tauri::State<'_, AppState>) -> Result<Vec<PaperInfo>, String> {
+        timed("list_papers", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            list_papers_impl(&b)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn paper_questions(state: tauri::State<'_, AppState>, paper_id: i64) -> Result<Vec<(String, String)>, String> {
+        timed("paper_questions", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            paper_qids_impl(&b, paper_id)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn list_questions(state: tauri::State<'_, AppState>,
+        topic_id: Option<i64>, qtype: Option<String>, status: Option<String>,
+        search: Option<String>, limit: Option<i64>, offset: Option<i64>) -> Result<Vec<QuestionRow>, String> {
+        timed("list_questions", false, || {
+            let conn = state.bank.lock().map_err(|e| e.to_string())?;
+            list_questions_impl(&conn, topic_id, qtype, status, search,
+                limit.unwrap_or(50).min(500), offset.unwrap_or(0))
+        })
+    }
+
+    #[tauri::command]
+    pub async fn get_questions_by_ids(state: tauri::State<'_, AppState>, qids: Vec<(String, String)>)
+        -> Result<Vec<QuestionRow>, String> {
+        timed("get_questions_by_ids", false, || {
+            let conn = state.bank.lock().map_err(|e| e.to_string())?;
+            get_questions_by_ids_impl(&conn, &qids)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn fts_spike(state: tauri::State<'_, AppState>, scale_to: Option<usize>) -> Result<SpikeResult, String> {
+        timed("fts_spike", false, || {
+            let conn = state.bank.lock().map_err(|e| e.to_string())?;
+            fts_spike_impl(&conn, scale_to.unwrap_or(100_000).min(200_000),
+                &["以太网通信", "高速计数器", "Modbus", "模拟量输入"])
+        })
+    }
+
+    /// 数据包导入（公开仓不含版权数据，用户自备 .smartbank）
+    #[tauri::command]
+    pub async fn import_bank_file(state: tauri::State<'_, AppState>, app: tauri::AppHandle, path: String)
+        -> Result<ImportReport, String> {
+        timed("import_bank_file", false, || {
+            if !path.to_lowercase().ends_with(".smartbank") {
+                return Err("仅支持 .smartbank 题库包".into());
+            }
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            let banks_root = app.path().app_data_dir().map_err(|e| e.to_string())?.join("banks");
+            std::fs::create_dir_all(&banks_root).map_err(|e| e.to_string())?;
+            import(&b, std::path::Path::new(&path), &banks_root, false)
+        })
+    }
+}

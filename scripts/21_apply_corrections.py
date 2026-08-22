@@ -5,9 +5,10 @@
 import sys, io, os, json
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-QDIR = os.path.join(BASE, '题库资料', 'questions')
-CORR = os.path.join(BASE, '题库资料', 'corrections.json')
+from _data import data
+
+QDIR = data('题库资料', 'questions')
+CORR = data('题库资料', 'corrections.json')
 
 def main():
     if not os.path.exists(CORR):

@@ -5,7 +5,7 @@
 import sys, io, os, json, zipfile, re
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
-BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from _data import data, BASE
 OUT = os.path.join(BASE, 'smart-quiz-app', 'src-tauri', 'resources', 'seed', 'smart-core.smartbank')
 
 def clean_opts(opts):
@@ -13,9 +13,9 @@ def clean_opts(opts):
     return [f'{chr(65+i)}、{o}' for i, o in enumerate(opts)]
 
 def main():
-    bank = json.load(open(os.path.join(BASE, '考试模拟卷', '题库.json'), encoding='utf-8'))
-    papers = json.load(open(os.path.join(BASE, '题库资料', 'papers_raw.json'), encoding='utf-8'))
-    img_src = os.path.join(BASE, '考试模拟卷', 'images')
+    bank = json.load(open(data('考试模拟卷', '题库.json'), encoding='utf-8'))
+    papers = json.load(open(data('题库资料', 'papers_raw.json'), encoding='utf-8'))
+    img_src = data('考试模拟卷', 'images')
 
     questions, topics = [], {}
     def add_topic(name, parent=None):
@@ -36,7 +36,7 @@ def main():
     papers_meta = []
     for name in sorted(papers):
         p = papers[name]
-        ans_file = os.path.join(BASE, '题库资料', 'answers', f'{name}.jsonl')
+        ans_file = data('题库资料', 'answers', f'{name}.jsonl')
         ans = {}
         if os.path.exists(ans_file):
             for line in open(ans_file, encoding='utf-8'):

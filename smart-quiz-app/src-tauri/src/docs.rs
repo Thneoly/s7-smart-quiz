@@ -1,4 +1,4 @@
-// M3：资料全文检索（docpack 解包 → 分块 → jieba → FTS5，RAG 的检索层）
+// 资料语料域：docpack 解包 → 分块 → jieba → FTS5 全文检索（RAG 的检索层）
 use rusqlite::{params, Connection};
 use serde::Serialize;
 use std::io::Read;
@@ -74,7 +74,7 @@ pub fn build_index(conn: &Connection, docpack: &Path, docs_dir: &Path, force: bo
     tx.commit().map_err(|e| e.to_string())?;
     conn.execute("INSERT OR REPLACE INTO docs_meta(k,v) VALUES('built_at',?1)",
         params![chrono::Utc::now().to_rfc3339()]).map_err(|e| e.to_string())?;
-    eprintln!("[docs] 索引完成: {n} 块, {:.1}s", t0.elapsed().as_secs_f32());
+    log::info!(target: "docs", "索引构建完成：{n} 块，{:.1}s", t0.elapsed().as_secs_f32());
     Ok(n)
 }
 
@@ -88,8 +88,7 @@ fn insert_chunk(tx: &rusqlite::Transaction, jb: &jieba_rs::Jieba, path: &str, ti
     Ok(())
 }
 
-pub fn search(conn: &Connection, query: &str, limit: i64) -> Result<Vec<DocHit>, String> {
-    ensure_schema(conn)?;
+pub fn search(conn: &Connection, query: &str, limit: i64) -> Result<Vec<DocHit>, String> {    ensure_schema(conn)?;
     let jb = jieba_rs::Jieba::new();
     let toks: Vec<String> = jb.cut(query, true).iter().map(|t| t.word)
         .filter(|s| !s.trim().is_empty()).map(|s| s.to_string()).collect();
@@ -147,5 +146,93 @@ mod tests {
         let hits3 = search(&conn, "PID 回路", 5).unwrap();
         assert!(!hits3.is_empty());
         std::fs::remove_dir_all(&tmp).ok();
+    }
+
+    #[test]
+    fn resolve_docpack_priority() {
+        let tmp = std::env::temp_dir().join(format!("sqres-{}", uuid::Uuid::new_v4()));
+        let user_dir = tmp.join("user");
+        let res_dir = tmp.join("res");
+        std::fs::create_dir_all(user_dir.join("docs")).unwrap();
+        std::fs::create_dir_all(res_dir.join("docs")).unwrap();
+        // 仅内置存在 → 取内置
+        std::fs::write(res_dir.join("docs/docs.docpack"), b"r").unwrap();
+        assert_eq!(resolve_docpack(&user_dir, Some(&res_dir)).unwrap(), res_dir.join("docs/docs.docpack"));
+        // 用户导入优先于内置
+        std::fs::write(user_dir.join("docs/docs.docpack"), b"u").unwrap();
+        assert_eq!(resolve_docpack(&user_dir, Some(&res_dir)).unwrap(), user_dir.join("docs/docs.docpack"));
+        // resource_dir 缺失（None）时用户导入仍可命中
+        assert_eq!(resolve_docpack(&user_dir, None).unwrap(), user_dir.join("docs/docs.docpack"));
+        std::fs::remove_dir_all(&tmp).ok();
+    }
+}
+
+/// 解析语料包位置：用户导入（app_data_dir/docs）优先于安装包内置资源，最后回退开发目录。
+/// 公开仓克隆者无内置资源，靠第一级或最后一级。
+pub fn resolve_docpack(data_dir: &Path, resource_dir: Option<&Path>) -> Result<std::path::PathBuf, String> {
+    let mut candidates = vec![data_dir.join("docs/docs.docpack")];
+    if let Some(r) = resource_dir { candidates.push(r.join("docs/docs.docpack")); }
+    candidates.push(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/docs/docs.docpack"));
+    candidates.into_iter().find(|p| p.exists())
+        .ok_or_else(|| "docs.docpack 未找到——请先在「资料速查」导入语料包，或将其放入 resources/docs/".into())
+}
+
+/// 构建索引（阻塞，秒级）：开独立连接执行，避免占用应用主连接
+pub fn build_docs(data_dir: &Path, resource_dir: Option<&Path>, force: bool) -> Result<usize, String> {
+    let pack = resolve_docpack(data_dir, resource_dir)?;
+    let conn = crate::db::open(&data_dir.join("bank.db")).map_err(|e| e.to_string())?;
+    build_index(&conn, &pack, &data_dir.join("docs"), force)
+}
+
+// ---------- Tauri 命令 ----------
+pub mod commands {
+    use super::{search as search_impl, status as status_impl, ensure_schema, build_docs, DocHit, DocsStatus};
+    use crate::telemetry::timed;
+    use crate::AppState;
+    use tauri::Manager;
+
+    #[tauri::command]
+    pub async fn docs_status(state: tauri::State<'_, AppState>) -> Result<DocsStatus, String> {
+        timed("docs_status", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            ensure_schema(&b)?;
+            Ok(status_impl(&b))
+        })
+    }
+
+    #[tauri::command]
+    pub async fn docs_build(app: tauri::AppHandle, force: Option<bool>) -> Result<usize, String> {
+        // 索引构建为秒级阻塞任务：spawn_blocking 走领域函数 build_docs（内部开独立连接）
+        let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let resource_dir = app.path().resource_dir().ok();
+        let f = force.unwrap_or(false);
+        crate::telemetry::timed_async("docs_build", false, async move {
+            tauri::async_runtime::spawn_blocking(move || build_docs(&data_dir, resource_dir.as_deref(), f))
+                .await.map_err(|e| e.to_string())?
+        }).await
+    }
+
+    #[tauri::command]
+    pub async fn docs_search(state: tauri::State<'_, AppState>, query: String, limit: Option<i64>) -> Result<Vec<DocHit>, String> {
+        // 只记长度不记内容：搜索词属用户输入
+        timed("docs_search", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            log::debug!(target: "docs", "搜索词长度 {} 命中上限 {}", query.chars().count(), limit.unwrap_or(20));
+            search_impl(&b, &query, limit.unwrap_or(20).min(50))
+        })
+    }
+
+    #[tauri::command]
+    pub async fn import_docpack(app: tauri::AppHandle, path: String) -> Result<u64, String> {
+        timed("import_docpack", false, || {
+            if !path.to_lowercase().ends_with(".docpack") {
+                return Err("仅支持 .docpack 语料包".into());
+            }
+            let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("docs");
+            std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+            let n = std::fs::copy(&path, dir.join("docs.docpack")).map_err(|e| e.to_string())?;
+            log::info!(target: "docs", "语料包已导入（{n} 字节），建议重建索引");
+            Ok(n)
+        })
     }
 }

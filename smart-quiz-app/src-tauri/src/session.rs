@@ -1,4 +1,4 @@
-// M1：会话/作答/SM-2/错题本/收藏/笔记/仪表盘（设计方案 V1.1 §3.2/§4）
+// 会话域：作答/判分/SM-2/错题本/收藏/笔记/仪表盘/活动日历（设计方案 V1.1 §3.2/§4）
 // 判分与 SM-2 的唯一权威实现在 Rust（交卷重算 = 信任边界；TS 端只做即时反馈展示）
 use crate::bank;
 use rusqlite::{params, Connection};
@@ -325,6 +325,165 @@ pub fn note_set(user: &Connection, bank_id: &str, qid: &str, content: &str) -> R
 pub fn note_get(user: &Connection, bank_id: &str, qid: &str) -> Result<Option<String>, String> {
     Ok(user.query_row("SELECT content FROM notes WHERE bank_id=?1 AND qid=?2", params![bank_id, qid],
         |r| r.get::<_, String>(0)).ok())
+}
+
+// ---------- 活动日历（打卡热力图数据） ----------
+#[derive(Serialize)]
+pub struct DayCount { pub date: String, pub count: i64 }
+
+pub fn activity(user: &Connection, days: i64) -> Result<Vec<DayCount>, String> {
+    let mut stmt = user.prepare(
+        "SELECT date(answered_at) d, COUNT(*) FROM answer_records GROUP BY d ORDER BY d DESC LIMIT ?1")
+        .map_err(|e| e.to_string())?;
+    let rows: Vec<(String, i64)> = stmt.query_map(params![days], |r| Ok((r.get(0)?, r.get(1)?)))
+        .map_err(|e| e.to_string())?.filter_map(|x| x.ok()).collect();
+    Ok(rows.into_iter().map(|(date, count)| DayCount { date, count }).collect())
+}
+
+// ---------- Tauri 命令 ----------
+pub mod commands {
+    use super::{start_session as start_session_impl, save_draft as save_draft_impl,
+                finish_session as finish_session_impl, session_detail as session_detail_impl,
+                unfinished_sessions as unfinished_sessions_impl, list_sessions as list_sessions_impl,
+                dashboard as dashboard_impl, due_review as due_review_impl,
+                wrong_list as wrong_list_impl, wrong_clear as wrong_clear_impl,
+                fav_toggle as fav_toggle_impl, fav_list as fav_list_impl,
+                note_get as note_get_impl, note_set as note_set_impl, activity as activity_impl};
+    use super::{SessionInfo, SessionDetail, SessionBrief, Dashboard, WrongRow, DayCount, Draft};
+    use crate::bank;
+    use crate::telemetry::timed;
+    use crate::AppState;
+
+    #[tauri::command]
+    pub async fn start_session(state: tauri::State<'_, AppState>, mode: String, title: String, bank_id: String,
+                               paper_id: Option<i64>, qids: Vec<(String, String)>, time_limit_sec: Option<i64>)
+        -> Result<SessionInfo, String> {
+        timed("start_session", false, || {
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            start_session_impl(&u, &mode, &title, &bank_id, paper_id, &qids, time_limit_sec)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn save_draft(state: tauri::State<'_, AppState>, session_id: i64, draft: serde_json::Value) -> Result<(), String> {
+        // 做题页每 1.5s 自动保存一次：成功降为 trace，避免刷屏
+        timed("save_draft", true, || {
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            let d: Draft = serde_json::from_value(draft).map_err(|e| e.to_string())?;
+            save_draft_impl(&u, session_id, &d)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn finish_session(state: tauri::State<'_, AppState>, session_id: i64) -> Result<SessionInfo, String> {
+        timed("finish_session", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            finish_session_impl(&u, &b, session_id)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn session_detail(state: tauri::State<'_, AppState>, session_id: i64) -> Result<SessionDetail, String> {
+        timed("session_detail", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            session_detail_impl(&u, &b, session_id)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn unfinished_sessions(state: tauri::State<'_, AppState>) -> Result<Vec<SessionInfo>, String> {
+        timed("unfinished_sessions", false, || {
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            unfinished_sessions_impl(&u)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn list_sessions(state: tauri::State<'_, AppState>) -> Result<Vec<SessionBrief>, String> {
+        timed("list_sessions", false, || {
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            list_sessions_impl(&u, 30)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn dashboard(state: tauri::State<'_, AppState>) -> Result<Dashboard, String> {
+        timed("dashboard", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            dashboard_impl(&u, &b)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn due_review(state: tauri::State<'_, AppState>, limit: Option<i64>) -> Result<Vec<bank::QuestionRow>, String> {
+        timed("due_review", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            due_review_impl(&u, &b, limit.unwrap_or(20))
+        })
+    }
+
+    #[tauri::command]
+    pub async fn wrong_list(state: tauri::State<'_, AppState>) -> Result<Vec<WrongRow>, String> {
+        timed("wrong_list", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            wrong_list_impl(&u, &b, true)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn wrong_clear(state: tauri::State<'_, AppState>, bank_id: String, qid: String) -> Result<(), String> {
+        timed("wrong_clear", false, || {
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            wrong_clear_impl(&u, &bank_id, &qid)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn fav_toggle(state: tauri::State<'_, AppState>, bank_id: String, qid: String) -> Result<bool, String> {
+        timed("fav_toggle", true, || {
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            fav_toggle_impl(&u, &bank_id, &qid)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn fav_list(state: tauri::State<'_, AppState>) -> Result<Vec<bank::QuestionRow>, String> {
+        timed("fav_list", false, || {
+            let b = state.bank.lock().map_err(|e| e.to_string())?;
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            fav_list_impl(&u, &b)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn note_get(state: tauri::State<'_, AppState>, bank_id: String, qid: String) -> Result<Option<String>, String> {
+        // 每道题进入视图都会取一次笔记：成功降为 trace
+        timed("note_get", true, || {
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            note_get_impl(&u, &bank_id, &qid)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn note_set(state: tauri::State<'_, AppState>, bank_id: String, qid: String, content: String) -> Result<(), String> {
+        timed("note_set", true, || {
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            note_set_impl(&u, &bank_id, &qid, &content)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn activity_calendar(state: tauri::State<'_, AppState>, days: Option<i64>) -> Result<Vec<DayCount>, String> {
+        timed("activity_calendar", false, || {
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            activity_impl(&u, days.unwrap_or(120))
+        })
+    }
 }
 
 // ---------- 单测 ----------

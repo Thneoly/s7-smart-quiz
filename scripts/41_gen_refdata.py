@@ -5,7 +5,8 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 OUTFILE = r'C:/Users/45110/AppData/Local/Temp/claude/D--PLC-s7-200/49770f43-c379-4f00-bb8e-cef6365239f4/tasks/ws0c033w8.output'
 JOURNAL = r'C:/Users/45110/.claude/projects/D--PLC-s7-200/49770f43-c379-4f00-bb8e-cef6365239f4/subagents/workflows/wf_b73c861d-9b3/journal.jsonl'
-TR = 'D:/PLC/s7-200/题库资料/refdata_transcripts.json'
+from _data import data
+TR = data('题库资料', 'refdata_transcripts.json')
 DEST = 'D:/PLC/s7-200/smart-quiz-app/src/study/refdata.json'
 
 KEY2SEC = {'硬件': 'hw', '指令': 'ins', '通信': 'comm', '故障': 'fault', '公式': 'formula'}
