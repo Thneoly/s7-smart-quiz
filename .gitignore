@@ -9,16 +9,21 @@ smart-quiz-app/dist/
 smart-quiz-app/src-tauri/target/
 smart-quiz-app/src-tauri/gen/schemas/
 
-# ===== 题库资料：可再生的中间产物 =====
-# 原始反编译树与CHM副本（hh.exe -decompile 可从学习资料目录的原始 CHM 重新生成）
+# ===== 题库资料：可再生的中间产物（本地保留，不入库） =====
+# 提取语料：可从学习资料目录的原始 CHM/PDF 用 hh.exe/pypdf + 提取脚本再生
+题库资料/手册章节/
+题库资料/techref_txt/
+题库资料/microwin_txt/
+题库资料/课程资料/
+题库资料/系统手册v28.txt
+题库资料/选型手册v28.txt
+# 原始反编译树与CHM副本
 题库资料/techref26/
 题库资料/microwin/
 题库资料/techref.chm/
-题库资料/techref.chm
+题库资料/papers_raw.json
 # 测试截图与代理临时文件
 题库资料/shots/
-题库资料/bank_dump.txt
-题库资料/_b_items.txt
 题库资料/refdata_transcripts.json
 
 # ===== 系统/编辑器 =====

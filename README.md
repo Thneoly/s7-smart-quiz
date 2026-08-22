@@ -7,23 +7,18 @@
 
 ```
 D:\PLC\s7-200\
-├── smart-quiz-app/            # ⭐ Tauri2+Vue3 桌面应用（正式产品）
+├── smart-quiz-app/            # ⭐ Tauri2+Vue3 桌面应用（唯一产品，自包含）
 │   ├── src-tauri/             #   Rust 后端（题库/会话/SM-2/组卷/导入/去重/检索/更新）
 │   ├── src/                   #   前端（学习/练习/考试/错题本/资料速查/管理/设置）
-│   ├── tests/                 #   Playwright E2E（M1/M2/M3/学习/资料/打印）
+│   ├── tests/                 #   Playwright E2E
+│   ├── resources/             #   种子题库+检索语料（随仓库分发，构建不依赖外部）
 │   └── make_update_manifest.py#   发布：更新清单生成
-├── 练习平台/                    # 离线网页版（双击 index.html，轻量分发用）
-├── 考试模拟卷/                  # 数据：5套真题350题(含答案) + 344题题库(md/json) + 配图
-├── 题库资料/                    # 语料与中间数据（提取文本/出题jsonl/答案/指南/速查）
-├── scripts/                    # 数据流水线脚本（编号=执行顺序）
-│   ├── 1x 抓取与解析           #   10抓取问卷星 11补图 12卷→JSON
-│   ├── 2x 题库构建             #   20合并去重 21应用校验修正
-│   ├── 3x 打包分发             #   30种子.smartbank 31网页平台数据 32文档docpack
-│   ├── 4x 内容生成             #   40学习指南 41资料速查（数据源自多智能体工作流）
-│   └── 9x 测试                 #   90网页平台E2E
-├── docs/                       # 文档：设计方案/学习指南/项目管理
-├── blogs/                      # 技术博客4篇（发布清单见 blogs/README.md）
-└── .venv/                      # uv Python环境（不入库）
+├── 考试模拟卷/                  # 数据源：5套真题md（外部抓取存档）+ 题库md/json + 配图
+├── 题库资料/                    # 源数据：questions/answers（AI产出可编辑源）、guide_stages
+│                              #   （提取语料已 ignore，本地保留可再生）
+├── scripts/                   # 数据流水线（10/11抓取 12解析 20合并 21修正 30种子 32语料 40指南 41速查）
+├── docs/                      # 设计方案/学习指南/项目管理
+└── blogs/                     # 技术博客4篇
 ```
 
 ## 快速开始
@@ -36,8 +31,8 @@ cd smart-quiz-app && npm install && npm run tauri dev
 cd smart-quiz-app/src-tauri && cargo test          # 后端 11 项
 cd .. && .venv/Scripts/python.exe tests/e2e_m1.py  # 前端 E2E（vite 自动拉起）
 
-# 数据流水线（改题库/资料后重跑，详见 docs/项目管理.md）
-.venv/Scripts/python.exe scripts/20_merge_bank.py
+# 数据流水线（改题库后重跑，详见 docs/项目管理.md）
+.venv/Scripts/python.exe scripts/20_merge_bank.py && .venv/Scripts/python.exe scripts/30_pack_seed.py
 ```
 
 ## 数据与规模
