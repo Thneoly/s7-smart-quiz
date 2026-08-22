@@ -60,7 +60,9 @@ try:
         check('更新检查mock提示', '浏览器模式' in (pg.text_content('.main') or ''))
         b.close()
 finally:
-    proc.terminate(); time.sleep(1)
+    # Windows: terminate() 只杀 npm 外壳，node(vite) 子进程会残留占住 1420 端口——按进程树击杀
+    subprocess.run(['taskkill', '/F', '/T', '/PID', str(proc.pid)], capture_output=True)
+    time.sleep(1)
 print('JS错误:', errs if errs else '(无)')
 print('失败项:', fails if fails else '无 —— M3 全部通过 🎉')
 sys.exit(1 if fails or errs else 0)

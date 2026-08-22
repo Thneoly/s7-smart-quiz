@@ -87,7 +87,9 @@ try:
         pg.screenshot(path='D:/PLC/s7-200/题库资料/shots/10_M2设置深色.png')
         b.close()
 finally:
-    proc.terminate(); time.sleep(1)
+    # Windows: terminate() 只杀 npm 外壳，node(vite) 子进程会残留占住 1420 端口——按进程树击杀
+    subprocess.run(['taskkill', '/F', '/T', '/PID', str(proc.pid)], capture_output=True)
+    time.sleep(1)
 
 print('\nJS错误:', errs if errs else '(无)')
 print('失败项:', fails if fails else '无 —— M2 全部通过 🎉')
