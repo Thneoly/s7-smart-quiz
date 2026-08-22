@@ -1,0 +1,110 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { api, type Dashboard, type SessionInfo, type DayCount } from '../api'
+import { store } from '../store'
+import { resumeSession } from '../session-start'
+
+const dash = ref<Dashboard | null>(null)
+const unfinished = ref<SessionInfo[]>([])
+const activity = ref<DayCount[]>([])
+const loading = ref(true)
+const acc = (d: Dashboard) => d.answered ? Math.round((d.correct / d.answered) * 100) : 0
+
+// 热力图：最近 15 周（列=周，行=周一~周日）
+const heat = ref<{ date: string; count: number; level: number }[][]>([])
+function buildHeat(days: DayCount[]) {
+  const map = new Map(days.map(d => [d.date, d.count]))
+  const today = new Date()
+  const cells: { date: string; count: number; level: number }[] = []
+  for (let i = 15 * 7 - 1; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(today.getDate() - i)
+    const ds = d.toISOString().slice(0, 10)
+    const c = map.get(ds) ?? 0
+    const level = c === 0 ? 0 : c < 10 ? 1 : c < 30 ? 2 : c < 60 ? 3 : 4
+    cells.push({ date: ds, count: c, level })
+  }
+  const weeks: typeof cells[] = []
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7))
+  heat.value = weeks
+}
+const heatColor = (lv: number) => ['var(--chip)', '#9ec3f5', '#5b8fe8', '#2f66d0', '#1c47a8'][lv]
+
+onMounted(async () => {
+  try {
+    const [d, u, a] = await Promise.all([api.dashboard(), api.unfinished(), api.activity(120)])
+    dash.value = d; unfinished.value = u; activity.value = a
+    buildHeat(a)
+  } finally { loading.value = false }
+})
+</script>
+
+<template>
+  <h2 class="pt">学习仪表盘</h2>
+  <div v-if="loading" class="empty">加载中…</div>
+  <template v-else>
+    <div class="statrow">
+      <div class="stat" @click="store.go('practice')"><b>{{ dash?.answered ?? 0 }}</b><span>累计做题</span></div>
+      <div class="stat"><b>{{ dash ? acc(dash) : 0 }}%</b><span>正确率</span></div>
+      <div class="stat" @click="store.go('practice')"><b>{{ dash?.due_count ?? 0 }}</b><span>复习到期</span></div>
+      <div class="stat" @click="store.go('wrong')"><b>{{ dash?.wrong_active ?? 0 }}</b><span>活跃错题</span></div>
+      <div class="stat"><b>{{ dash?.streak_days ?? 0 }}</b><span>学习天数</span></div>
+      <div class="stat"><b>{{ dash?.sessions_done ?? 0 }}</b><span>完成场次</span></div>
+    </div>
+
+    <div v-if="unfinished.length" class="card">
+      <h3>⏸ 进行中的会话（断点续考）</h3>
+      <div v-for="s in unfinished" :key="s.session_id" class="rowitem" style="cursor:pointer" @click="resumeSession(s)">
+        <div class="qq">{{ s.title }}</div>
+        <div class="meta"><span class="tag">{{ s.mode }}</span>已答 {{ Object.keys((s.draft as any)?.picks ?? {}).length }}/{{ s.total_qty }} 题 · 点击继续</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🔥 学习热力图 <span class="hint">最近 15 周</span></h3>
+      <div class="heat">
+        <div v-for="(w, wi) in heat" :key="wi" class="heatcol">
+          <div v-for="c in w" :key="c.date" class="heatcell" :style="{ background: heatColor(c.level) }"
+            :title="`${c.date}：${c.count} 题`"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>🚀 快速开始</h3>
+      <div style="display:flex;gap:9px;flex-wrap:wrap">
+        <button class="btn pri" @click="store.go('practice')">📚 开始练习</button>
+        <button class="btn pri" @click="store.go('exam')">📝 真题模拟</button>
+        <button class="btn" @click="store.go('wrong')">❌ 错题重练</button>
+      </div>
+    </div>
+
+    <div class="card" v-if="dash?.by_topic?.length">
+      <h3>📊 各主题正确率</h3>
+      <div v-for="t in dash.by_topic" :key="t.topic" style="margin-bottom:9px">
+        <div style="display:flex;justify-content:space-between;font-size:.82rem">
+          <span>{{ t.topic }}</span><span style="color:var(--sub)">{{ t.c }}/{{ t.a }} · {{ Math.round(t.c / t.a * 100) }}%</span>
+        </div>
+        <div style="height:6px;background:var(--chip);border-radius:3px;overflow:hidden">
+          <i :style="{ display:'block', height:'100%', width: (t.c / t.a * 100) + '%',
+            background: t.c / t.a >= .8 ? 'var(--ok)' : t.c / t.a >= .6 ? 'var(--warn)' : 'var(--bad)' }"></i>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" v-if="dash?.recent?.length">
+      <h3>🕘 最近练习</h3>
+      <div v-for="r in dash.recent.slice(0, 5)" :key="r.session_id" class="rowitem" style="cursor:pointer"
+        @click="store.go('result', { id: r.session_id })">
+        <div class="qq">{{ r.title }}</div>
+        <div class="meta"><span class="tag">{{ r.mode }}</span>{{ r.correct_qty }}/{{ r.scored_qty }} 正确 · 得分 {{ r.score ?? '—' }}</div>
+      </div>
+    </div>
+  </template>
+</template>
+
+<style scoped>
+.heat { display: flex; gap: 3px; overflow-x: auto; padding: 2px; }
+.heatcol { display: flex; flex-direction: column; gap: 3px; }
+.heatcell { width: 13px; height: 13px; border-radius: 3px; }
+</style>

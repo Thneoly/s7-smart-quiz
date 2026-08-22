@@ -1,0 +1,91 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { api, type Overview, type QuestionRow } from '../api'
+import { startWithQuestions } from '../session-start'
+
+const ov = ref<Overview | null>(null)
+const busy = ref('')
+const randN = ref(30)
+
+async function topicPractice(name?: string) {
+  busy.value = name ?? '全部'
+  try {
+    const qs = await api.questions({ topic_id: ov.value?.topics.find(t => t.name === name)?.topic_id, status: 'active', limit: 500 })
+    await startWithQuestions('practice', name ? `章节练习 · ${name}` : '全部顺序练习', shuffleStable(qs))
+  } finally { busy.value = '' }
+}
+async function randomPractice() {
+  busy.value = 'random'
+  try {
+    const qs = await api.questions({ status: 'active', limit: 500 })
+    const picked = [...qs].sort(() => Math.random() - .5).slice(0, Math.min(randN.value, qs.length))
+    await startWithQuestions('random', `随机练习 ${picked.length} 题`, picked)
+  } finally { busy.value = '' }
+}
+async function recite(name?: string) {
+  busy.value = 'recite'
+  try {
+    const qs = await api.questions({ topic_id: ov.value?.topics.find(t => t.name === name)?.topic_id, status: 'active', limit: 500 })
+    await startWithQuestions('recite', `背诵模式${name ? ' · ' + name : ''}`, qs, { recite: true })
+  } finally { busy.value = '' }
+}
+async function reviewDue() {
+  busy.value = 'review'
+  try {
+    const qs = await api.dueReview(30)
+    if (!qs.length) { alert('当前没有到期复习的题目（SM-2 间隔未到）'); return }
+    await startWithQuestions('review', `间隔复习 ${qs.length} 题`, qs)
+  } finally { busy.value = '' }
+}
+async function wrongPractice() {
+  busy.value = 'wrong'
+  try {
+    const ws = await api.wrongList()
+    if (!ws.length) { alert('错题本是空的 🎉'); return }
+    await startWithQuestions('wrong', `错题重练 ${ws.length} 题`, ws.map(w => w.question))
+  } finally { busy.value = '' }
+}
+async function favPractice() {
+  busy.value = 'fav'
+  try {
+    const qs = await api.favList()
+    if (!qs.length) { alert('收藏夹是空的，做题时点 ☆ 收藏'); return }
+    await startWithQuestions('fav', `收藏练习 ${qs.length} 题`, qs)
+  } finally { busy.value = '' }
+}
+function shuffleStable(qs: QuestionRow[]) { return qs } // 章节练习保持题序
+
+onMounted(async () => { ov.value = await api.overview() })
+</script>
+
+<template>
+  <h2 class="pt">练习中心</h2>
+  <div class="card">
+    <h3>📖 章节练习 <span class="hint">即时判分 · 答错自动进错题本与复习计划</span></h3>
+    <div class="chips" style="display:flex;flex-wrap:wrap;gap:8px">
+      <button class="chip" :disabled="!!busy" @click="topicPractice()">全部主题</button>
+      <button v-for="t in ov?.topics ?? []" :key="t.topic_id" class="chip" :disabled="!!busy"
+        @click="topicPractice(t.name)">{{ t.name }}<small>{{ t.active }}</small></button>
+    </div>
+  </div>
+  <div class="card">
+    <h3>🎯 更多练习方式</h3>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+      <select v-model.number="randN"><option :value="10">10 题</option><option :value="30">30 题</option><option :value="50">50 题</option></select>
+      <button class="btn pri" :disabled="!!busy" @click="randomPractice()">🎲 随机练习</button>
+      <button class="btn" :disabled="!!busy" @click="reviewDue()">⏰ 间隔复习（SM-2 到期题）</button>
+      <button class="btn" :disabled="!!busy" @click="wrongPractice()">❌ 错题重练（连续答对2次消灭）</button>
+      <button class="btn" :disabled="!!busy" @click="favPractice()">⭐ 收藏练习</button>
+      <button class="btn ghost" :disabled="!!busy" @click="recite()">👀 背诵模式</button>
+    </div>
+    <p class="hint" style="margin-top:10px">做题页快捷键：数字键 1~5 选择答案，← → 翻页；多选题选完点「提交答案」（全对才得分）。</p>
+  </div>
+  <div class="card">
+    <h3>👀 背诵模式（按主题）</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      <button class="chip" @click="recite()">全部</button>
+      <button v-for="t in ov?.topics ?? []" :key="t.topic_id" class="chip" @click="recite(t.name)">{{ t.name }}</button>
+    </div>
+  </div>
+  <div v-if="busy" class="empty">正在准备题目…</div>
+</template>

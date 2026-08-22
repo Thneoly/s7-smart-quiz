@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>S7-200 SMART 认证练习平台</title>
+<style>
+:root{
+  --bg:#f3f5f9; --card:#ffffff; --ink:#1c2333; --sub:#5b6478; --line:#e3e7ef;
+  --brand:#2456d6; --brand-ink:#fff; --ok:#0e9f6e; --ok-bg:#e6f7f0;
+  --bad:#d64545; --bad-bg:#fdeeee; --warn:#b7791f; --warn-bg:#fdf3e3;
+  --chip:#eef2fb; --shadow:0 1px 3px rgba(28,35,51,.07),0 4px 14px rgba(28,35,51,.05);
+  --radius:14px;
+}
+[data-theme=dark]{
+  --bg:#12151d; --card:#1b2029; --ink:#e8ecf4; --sub:#98a2b8; --line:#2a3140;
+  --brand:#5b84f0; --brand-ink:#0d1220; --ok:#34c48e; --ok-bg:#12271e;
+  --bad:#f07171; --bad-bg:#2e1a1a; --warn:#e2b25a; --warn-bg:#2b2110;
+  --chip:#232b3b; --shadow:0 1px 3px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;line-height:1.6;min-height:100vh}
+#app{max-width:860px;margin:0 auto;padding:14px 14px 90px}
+header{display:flex;align-items:center;justify-content:space-between;padding:10px 4px 14px;gap:8px}
+header h1{font-size:1.15rem;display:flex;align-items:center;gap:8px}
+header h1 .logo{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--brand),#7a3df0);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;font-weight:800}
+.hbtns{display:flex;gap:6px}
+.icobtn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:5px 10px;cursor:pointer;font-size:.9rem}
+.icobtn:hover{border-color:var(--brand)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:14px}
+.card h2{font-size:1rem;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.card h2 .n{color:var(--sub);font-weight:400;font-size:.82rem}
+.statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 8px;text-align:center}
+.stat b{display:block;font-size:1.35rem;color:var(--brand)}
+.stat span{font-size:.75rem;color:var(--sub)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--chip);border-radius:999px;padding:6px 14px;cursor:pointer;font-size:.88rem;transition:.15s}
+.chip:hover{border-color:var(--brand)}
+.chip.on{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.chip small{opacity:.75;margin-left:4px}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.btn{border:none;border-radius:10px;padding:9px 16px;cursor:pointer;font-size:.92rem;background:var(--chip);color:var(--ink)}
+.btn.pri{background:var(--brand);color:var(--brand-ink)}
+.btn.ghost{background:transparent;border:1px solid var(--line)}
+.btn:hover{filter:brightness(1.06)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.paper{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px dashed var(--line)}
+.paper:last-child{border-bottom:none}
+.paper .nm{font-weight:700;width:44px}
+.paper .tt{flex:1;min-width:0}
+.paper .tt small{display:block;color:var(--sub);font-size:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar{height:6px;background:var(--chip);border-radius:3px;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:3px}
+/* 做题页 */
+.quiztop{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.quiztop .prog{flex:1}
+.quiztop .pos{font-size:.85rem;color:var(--sub);white-space:nowrap}
+.pbar{height:6px;background:var(--chip);border-radius:3px;overflow:hidden;margin-top:4px}
+.pbar i{display:block;height:100%;background:var(--brand);transition:width .2s}
+.qmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;font-size:.78rem;color:var(--sub)}
+.badge{padding:2px 9px;border-radius:999px;font-size:.74rem;background:var(--chip);color:var(--sub)}
+.badge.multi{background:#e9e2fb;color:#5b3df0}
+[data-theme=dark] .badge.multi{background:#2a2140;color:#b9a5f5}
+.badge.low{background:var(--warn-bg);color:var(--warn)}
+.stem{font-size:1.02rem;font-weight:600;white-space:pre-wrap;margin-bottom:12px}
+.qimg{max-width:100%;border:1px solid var(--line);border-radius:10px;margin:6px 0 12px;cursor:zoom-in;display:block}
+.opts{display:flex;flex-direction:column;gap:9px}
+.opt{display:flex;gap:10px;align-items:flex-start;border:1.5px solid var(--line);border-radius:11px;padding:11px 13px;cursor:pointer;font-size:.95rem;transition:.12s;background:var(--card)}
+.opt:hover{border-color:var(--brand)}
+.opt .L{font-weight:700;color:var(--brand);flex-shrink:0}
+.opt.sel{border-color:var(--brand);background:var(--chip)}
+.opt.right{border-color:var(--ok);background:var(--ok-bg)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-bg)}
+.opt.lock{cursor:default}
+.opt.lock:hover{border-color:var(--line)}
+.opt.right.lock:hover,.opt.wrong.lock:hover{border-color:inherit}
+.fb{border-radius:11px;padding:12px 14px;margin-top:12px;font-size:.9rem}
+.fb.ok{background:var(--ok-bg);color:var(--ok)}
+.fb.bad{background:var(--bad-bg);color:var(--bad)}
+.fb b{display:block;margin-bottom:4px}
+.fb .ex{color:var(--ink);opacity:.92}
+.fb .src{display:block;margin-top:6px;font-size:.78rem;color:var(--sub)}
+.navrow{display:flex;gap:10px;margin-top:16px}
+.navrow .btn{flex:1;text-align:center}
+.favbtn{background:none;border:none;font-size:1.25rem;cursor:pointer;color:var(--sub);padding:2px 6px}
+.favbtn.on{color:#f0a020}
+/* 答题卡 */
+.mask{position:fixed;inset:0;background:rgba(10,12,18,.55);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+.sheet{background:var(--card);border-radius:16px;padding:20px;max-width:520px;width:100%;max-height:80vh;overflow:auto}
+.sheet h3{margin-bottom:12px;font-size:1rem}
+.sheet .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:8px}
+.sheet .cell{border:1.5px solid var(--line);border-radius:9px;text-align:center;padding:6px 0;cursor:pointer;font-size:.9rem}
+.sheet .cell.did{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.sheet .cell.cur{outline:2.5px solid var(--f0a020,#f0a020)}
+/* 结果页 */
+.scorewrap{text-align:center;padding:10px 0 4px}
+.scorewrap .big{font-size:3rem;font-weight:800;color:var(--brand)}
+.scorewrap .sub{color:var(--sub)}
+.rgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.rgrid .stat b{font-size:1.2rem}
+.wronglist .item{border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px;font-size:.9rem}
+.wronglist .item .qq{font-weight:600;margin-bottom:6px}
+.wronglist .item .aa{color:var(--ok);font-weight:600}
+/* 通用列表页 */
+.rowitem{border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start;background:var(--card)}
+.rowitem .grow{flex:1;min-width:0}
+.rowitem .qq{font-weight:600;font-size:.92rem;margin-bottom:3px}
+.rowitem .meta{font-size:.76rem;color:var(--sub)}
+.rowitem .del{background:none;border:none;color:var(--bad);cursor:pointer;font-size:.85rem;padding:4px}
+.searchbox{display:flex;gap:8px;margin-bottom:14px}
+.searchbox input{flex:1;border:1.5px solid var(--line);border-radius:10px;padding:10px 13px;font-size:.95rem;background:var(--card);color:var(--ink)}
+.searchbox input:focus{outline:none;border-color:var(--brand)}
+.empty{text-align:center;color:var(--sub);padding:30px 0;font-size:.9rem}
+/* 底部导航 */
+nav.bottom{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);display:none;justify-content:space-around;padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:40}
+nav.bottom button{background:none;border:none;color:var(--sub);font-size:.72rem;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+nav.bottom button .i{font-size:1.25rem}
+nav.bottom button.on{color:var(--brand)}
+#lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99;display:none;align-items:center;justify-content:center;cursor:zoom-out;padding:20px}
+#lightbox img{max-width:100%;max-height:100%}
+@media(max-width:560px){
+  .statrow{grid-template-columns:repeat(2,1fr)}
+  .rgrid{grid-template-columns:repeat(3,1fr)}
+  #app{padding-bottom:80px}
+  nav.bottom{display:flex}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<nav class="bottom" id="bottomnav">
+  <button onclick="go('home')" data-nav="home"><span class="i">🏠</span>首页</button>
+  <button onclick="startPractice('全部')" data-nav="practice"><span class="i">📚</span>练习</button>
+  <button onclick="go('wrong')" data-nav="wrong"><span class="i">❌</span>错题本</button>
+  <button onclick="go('fav')" data-nav="fav"><span class="i">⭐</span>收藏</button>
+</nav>
+<div id="lightbox"><img id="lightboximg" alt="题目配图"></div>
+<script src="data.js"></script>
+<script>
+/* ============ 数据适配 ============ */
+const normBank = q => ({id:q.id, topic:q.topic, type:q.type, q:q.q, img:null, options:q.options||[],
+  answer:(q.answer||'').toUpperCase(), explain:q.explain||'', source:q.source||'', conf:'', from:'题库·'+q.topic});
+const normPaper = (p,it) => ({id:it.id, topic:p.name, type:it.type, q:it.q, img:it.img, options:it.options||[],
+  answer:(it.ans||'').toUpperCase(), explain:it.explain||'', source:it.src||'', conf:it.conf||'', from:p.name+' 第'+it.n+'题'});
+
+/* ============ 本地存储 ============ */
+const LS = {
+  get(k,d){ try{ const v = localStorage.getItem('sq_'+k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem('sq_'+k, JSON.stringify(v)); }catch(e){} }
+};
+let wrong   = LS.get('wrong', {});      // id -> {count, q:快照}
+let favs    = LS.get('fav', {});        // id -> 快照
+let stats   = LS.get('stats', {answered:0, correct:0, byTopic:{}, byPaper:{}});
+let history = LS.get('hist', []);       // 最近练习记录 [{title, score, total, ts}]
+
+/* ============ 全局状态 ============ */
+let S = { view:'home', session:null };
+let timerH = null;
+
+const $ = s => document.querySelector(s);
+const esc = s => (s??'').toString().replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const letters = s => (s||'').split('').filter(c=>'ABCDE'.includes(c)).sort().join('');
+const hasAns = it => letters(it.answer).length>0;
+const fmtTime = ms => { const t=Math.round(ms/1000), m=Math.floor(t/60), s=t%60; return (m<10?'0':'')+m+':'+(s<10?'0':'')+s; };
+
+/* ============ 首页 ============ */
+function renderHome(){
+  const topics = {}; BANK.forEach(q=>topics[q.topic]=(topics[q.topic]||0)+1);
+  const acc = stats.answered? Math.round(stats.correct/stats.answered*100):0;
+  let h = `
+  <div class="statrow">
+    <div class="stat"><b>${BANK.length}</b><span>题库题目</span></div>
+    <div class="stat"><b>${stats.answered}</b><span>累计已做</span></div>
+    <div class="stat"><b>${acc}%</b><span>正确率</span></div>
+    <div class="stat"><b>${Object.keys(wrong).length}</b><span>错题待消灭</span></div>
+  </div>
+
+  <div class="card">
+    <h2>📚 分类练习 <span class="n">按主题顺序刷题，即时判分</span></h2>
+    <div class="chips">
+      <button class="chip" onclick="startPractice('全部')">全部顺序<small>${BANK.length}</small></button>
+      ${Object.keys(topics).map(t=>`<button class="chip" onclick="startPractice('${esc(t)}')">${esc(t)}<small>${topics[t]}</small></button>`).join('')}
+    </div>
+    <div class="btnrow">
+      <button class="btn pri" onclick="askRandom()">🎲 随机练习</button>
+      <button class="btn" onclick="go('wrong')">❌ 错题本（${Object.keys(wrong).length}）</button>
+      <button class="btn" onclick="go('fav')">⭐ 收藏夹（${Object.keys(favs).length}）</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📝 真题模拟 <span class="n">A~E 卷 · 考试模式交卷判分</span></h2>
+    ${PAPERS.map(p=>{
+      const did = p.items.filter(it=> (stats.byPaper[it.id]||{}).d).length;
+      const pct = Math.round(did/p.items.length*100);
+      const ansInfo = p.answered>=p.items.length?'答案已收录':(p.answered>0?`答案收录 ${p.answered}/${p.items.length}`:'答案整理中');
+      return `<div class="paper">
+        <div class="nm">${p.name}</div>
+        <div class="tt">${esc(p.title)}<small>${p.items.length} 题 · ${ansInfo} · 已做 ${did}</small>
+          <div class="bar"><i style="width:${pct}%"></i></div></div>
+        <button class="btn pri" onclick="startPaper('${p.name}')">开始</button>
+      </div>`;}).join('')}
+    <div class="btnrow">
+      <button class="btn" onclick="startMock(40,10)">🧪 智能组卷 50 题（40单+10多）</button>
+      <button class="btn" onclick="startMock(40,30)">🧪 全真组卷 70 题（40单+30多）</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔎 搜题</h2>
+    <div class="searchbox">
+      <input id="kw" placeholder="输入关键词，如：Modbus / 高速计数 / 27648" onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="btn pri" onclick="doSearch()">搜索</button>
+    </div>
+    <div id="searchout"></div>
+  </div>
+
+  <div class="card">
+    <h2>📈 学习统计</h2>
+    <div id="statbars">${topicBars()}</div>
+    ${history.length? `<h2 style="margin-top:14px">🕘 最近练习</h2>` + history.slice(0,5).map(r=>
+      `<div class="paper"><div class="nm" style="width:auto">${esc(r.title)}</div><div class="tt"><small>${r.score}/${r.total} · ${new Date(r.ts).toLocaleString()}</small></div></div>`).join('') : ''}
+    <div class="btnrow"><button class="btn ghost" onclick="resetAll()">清空全部学习数据</button></div>
+  </div>`;
+  $('#app').innerHTML = h;
+}
+function topicBars(){
+  const rows = Object.entries(stats.byTopic).map(([t,v])=>({t, a:v.a||0, c:v.c||0, r:(v.a?Math.round((v.c||0)/v.a*100):0)}))
+    .sort((x,y)=>y.a-x.a);
+  if(!rows.length) return '<div class="empty">还没有做题记录</div>';
+  return rows.map(r=>`<div style="margin-bottom:9px">
+    <div style="display:flex;justify-content:space-between;font-size:.82rem"><span>${esc(r.t)}</span><span style="color:var(--sub)">${r.c}/${r.a} · ${r.r}%</span></div>
+    <div class="bar"><i style="width:${r.r}%;background:${r.r>=80?'var(--ok)':r.r>=60?'var(--warn)':'var(--bad)'}"></i></div>
+  </div>`).join('');
+}
+
+/* ============ 会话 ============ */
+function newSession(title, items, mode, startIdx=0){
+  return { title, items, idx:startIdx, mode, picks:{}, locked:{}, start:Date.now(), submitted:false };
+}
+function startPractice(topic){
+  const items = (topic==='全部'? BANK : BANK.filter(q=>q.topic===topic)).map(normBank);
+  S.session = newSession(topic==='全部'?'题库顺序练习':topic, items, 'practice');
+  go('quiz');
+}
+function askRandom(){
+  const n = prompt('随机抽取题目数量：','30');
+  if(!n) return;
+  const cnt = Math.max(1, Math.min(BANK.length, parseInt(n)||30));
+  const pool = [...BANK].sort(()=>Math.random()-.5).slice(0,cnt).map(normBank);
+  S.session = newSession('随机练习 '+cnt+' 题', pool, 'practice');
+  go('quiz');
+}
+function startPaper(name){
+  const p = PAPERS.find(x=>x.name===name);
+  S.session = newSession(p.name+' 真题', p.items.map(it=>normPaper(p,it)), 'exam');
+  go('quiz');
+}
+function startMock(ns, nm){
+  const singles = BANK.filter(q=>q.type==='single').sort(()=>Math.random()-.5).slice(0,ns);
+  const multis = BANK.filter(q=>q.type==='multi').sort(()=>Math.random()-.5).slice(0,nm);
+  S.session = newSession(`智能组卷 ${ns+nm} 题`, [...singles,...multis].map(normBank), 'exam');
+  go('quiz');
+}
+function startWrongFav(kind){
+  const src = kind==='wrong'? wrong : favs;
+  const items = Object.values(src).map(v=>v.q).filter(Boolean);
+  if(!items.length){ alert(kind==='wrong'?'错题本是空的，先去做题吧':'收藏夹是空的，做题时点 ☆ 收藏'); return; }
+  S.session = newSession(kind==='wrong'?'错题重练':'收藏练习', items, 'practice');
+  go('quiz');
+}
+function doSearch(){
+  const kw = $('#kw').value.trim();
+  if(!kw) return;
+  const kwl = kw.toLowerCase();
+  const hits = [];
+  BANK.forEach(q=>{ if((q.q+' '+q.options.join(' ')+' '+q.topic).toLowerCase().includes(kwl)) hits.push(normBank(q)); });
+  PAPERS.forEach(p=>p.items.forEach(it=>{ if((it.q+' '+it.options.join(' ')+' '+p.name).toLowerCase().includes(kwl)) hits.push(normPaper(p,it)); }));
+  const out = $('#searchout');
+  if(!hits.length){ out.innerHTML = '<div class="empty">没有找到相关题目</div>'; return; }
+  out.innerHTML = `<div class="meta" style="font-size:.8rem;color:var(--sub);margin-bottom:8px">找到 ${hits.length} 题，点击任意一题进入连续练习</div>` +
+    hits.map((it,i)=>`<div class="rowitem" onclick="searchGo(${i})">
+      <div class="grow"><div class="qq">${i+1}. ${esc(it.q).slice(0,80)}</div>
+      <div class="meta">${esc(it.from)} · ${it.type==='multi'?'多选':'单选'}</div></div></div>`).join('');
+  out._hits = hits;
+}
+function searchGo(i){
+  S.session = newSession('搜索结果练习', $('#searchout')._hits, 'practice', i);
+  go('quiz');
+}
+
+/* ============ 做题页 ============ */
+function renderQuiz(){
+  if(!S.session){ go('home'); return; }
+  const ss = S.session, it = ss.items[ss.idx];
+  const isMulti = it.type==='multi';
+  const locked = !!ss.locked[ss.idx];
+  const picked = ss.picks[ss.idx]||[];
+  const ansL = letters(it.answer);
+  clearInterval(timerH);
+  let h = `
+  <div class="quiztop">
+    <button class="btn ghost" onclick="go('home')">←</button>
+    <div class="prog"><div style="font-size:.85rem;color:var(--sub)">${esc(ss.title)}${ss.mode==='exam'?' · <span id="timer"></span>':''}</div>
+    <div class="pbar"><i style="width:${(ss.idx+1)/ss.items.length*100}%"></i></div></div>
+    <div class="pos">${ss.idx+1}/${ss.items.length}</div>
+    <button class="favbtn ${favs[it.id]?'on':''}" onclick="togFav()" title="收藏">☆</button>
+  </div>
+  <div class="card">
+    <div class="qmeta">
+      <span class="badge ${isMulti?'multi':''}">${isMulti?'多选题':'单选题'}</span>
+      <span class="badge">${esc(it.from)}</span>
+      ${it.conf==='low'?'<span class="badge low">低置信度答案</span>':''}
+      ${ss.mode==='exam'?'':hasAns(it)?'':'<span class="badge low">答案整理中</span>'}
+    </div>
+    <div class="stem">${esc(it.q)}</div>
+    ${it.img?`<img class="qimg" src="${esc(it.img)}" onclick="showImg('${esc(it.img)}')" alt="题目图">`:''}
+    <div class="opts">${it.options.map((o,i)=>{
+      const L = String.fromCharCode(65+i);
+      let cls = 'opt';
+      if(locked && ss.mode!=='exam'){
+        if(ansL.includes(L)) cls+=' right';
+        else if(picked.includes(L)) cls+=' wrong';
+        cls+=' lock';
+      } else if(picked.includes(L)) cls+=' sel';
+      return `<div class="${cls}" onclick="pick('${L}')"><span class="L">${L}</span><span>${esc(o.replace(/^[A-H][、.．,，]\s*/,''))}</span></div>`;
+    }).join('')}</div>
+    <div id="fb">${locked && ss.mode!=='exam'? feedback(it, picked, ansL):''}</div>
+    <div class="navrow">
+      <button class="btn" onclick="nav(-1)" ${ss.idx===0?'disabled':''}>上一题</button>
+      ${isMulti && !locked && ss.mode!=='exam' ? `<button class="btn pri" onclick="submitMulti()">提交答案</button>`:''}
+      ${ss.mode==='exam' ? `<button class="btn" onclick="showSheet()">答题卡</button>
+        ${ss.idx===ss.items.length-1? `<button class="btn pri" onclick="finishExam()">交卷</button>`:''}`:''}
+      <button class="btn ${(!isMulti||ss.mode==='exam')&&ss.idx<ss.items.length-1?'pri':''}" onclick="nav(1)" ${ss.idx===ss.items.length-1&&!(ss.mode==='exam')?'disabled':''}>
+        ${ss.idx===ss.items.length-1?'已是最后一题':'下一题'}</button>
+    </div>
+  </div>`;
+  $('#app').innerHTML = h;
+  if(ss.mode==='exam'){
+    const el = $('#timer');
+    const tick = ()=>{ if(el) el.textContent = fmtTime(Date.now()-ss.start); };
+    tick(); timerH = setInterval(tick, 1000);
+  }
+}
+function feedback(it, picked, ansL){
+  if(!hasAns(it)) return `<div class="fb bad">该题参考答案暂未收录</div>`;
+  const ok = letters(picked.join(''))===ansL;
+  return `<div class="fb ${ok?'ok':'bad'}"><b>${ok?'✓ 回答正确':'✗ 回答错误'}${it.type==='multi'?' · 正确答案 '+ansL:''}</b>
+    <span class="ex">${it.explain?esc(it.explain):''}</span>
+    ${it.source?`<span class="src">出处：${esc(it.source)}${it.conf&&it.conf!=='high'?` · 置信度:${it.conf}`:''}</span>`:''}</div>`;
+}
+function pick(L){
+  const ss = S.session, i = ss.idx, it = ss.items[i];
+  if(ss.mode!=='exam' && ss.locked[i]) return;      // 练习模式已判分
+  const cur = ss.picks[i]||[];
+  if(it.type==='multi'){
+    ss.picks[i] = cur.includes(L)? cur.filter(x=>x!==L) : [...cur,L];
+  } else {
+    ss.picks[i] = [L];
+    if(ss.mode!=='exam') judge(i);                   // 单选练习模式立即判分
+  }
+  renderQuiz();
+}
+function submitMulti(){
+  const ss = S.session;
+  if(!(ss.picks[ss.idx]||[]).length){ alert('请先选择选项'); return; }
+  judge(ss.idx); renderQuiz();
+}
+function judge(i){
+  const ss = S.session, it = ss.items[i];
+  ss.locked[i] = true;
+  if(!hasAns(it)) return;
+  const ok = letters((ss.picks[i]||[]).join(''))===letters(it.answer);
+  recordStat(it, ok);
+  if(ok){ delete wrong[it.id]; LS.set('wrong', wrong); }
+  else { wrong[it.id] = {count:(wrong[it.id]?.count||0)+1, q:it}; LS.set('wrong', wrong); }
+}
+function recordStat(it, ok){
+  stats.answered++; if(ok) stats.correct++;
+  const bt = stats.byTopic[it.topic]||{a:0,c:0}; bt.a++; if(ok)bt.c++; stats.byTopic[it.topic]=bt;
+  const bp = stats.byPaper[it.id]||{d:1}; bp.d=1; stats.byPaper[it.id]=bp;   // paper题按id记录已做
+  LS.set('stats', stats);
+}
+function togFav(){
+  const it = S.session.items[S.session.idx];
+  if(favs[it.id]) delete favs[it.id]; else favs[it.id] = {q:it};
+  LS.set('fav', favs); renderQuiz();
+}
+function nav(d){
+  const ss = S.session;
+  const ni = ss.idx+d;
+  if(ni<0||ni>=ss.items.length) return;
+  ss.idx = ni; renderQuiz();
+}
+function showSheet(){
+  const ss = S.session;
+  const m = document.createElement('div'); m.className='mask';
+  m.innerHTML = `<div class="sheet"><h3>答题卡 <span style="float:right;font-size:.8rem;color:var(--sub)">已答 ${Object.keys(ss.picks).length}/${ss.items.length}</span></h3>
+    <div class="grid">${ss.items.map((_,i)=>`<div class="cell ${ss.picks[i]?'did':''} ${i===ss.idx?'cur':''}" onclick="sheetGo(${i})">${i+1}</div>`).join('')}</div>
+    <div class="btnrow"><button class="btn pri" style="flex:1" onclick="finishExam()">交卷</button><button class="btn" style="flex:1" onclick="this.closest('.mask').remove()">继续答题</button></div></div>`;
+  m.onclick = e=>{ if(e.target===m) m.remove(); };
+  document.body.appendChild(m);
+}
+function sheetGo(i){ document.querySelector('.mask')?.remove(); S.session.idx=i; renderQuiz(); }
+function finishExam(){
+  const ss = S.session;
+  const un = ss.items.filter((_,i)=>!(ss.picks[i]||[]).length).length;
+  if(un && !confirm(`还有 ${un} 题未作答，确定交卷？`)) return;
+  clearInterval(timerH);
+  ss.submitted = true;
+  // 逐题记录（仅有答案的计分）
+  ss.results = ss.items.map((it,i)=>{
+    const has = hasAns(it);
+    const ok = has && letters((ss.picks[i]||[]).join(''))===letters(it.answer);
+    if(has){ recordStat(it, ok); if(ok){delete wrong[it.id];} else wrong[it.id]={count:(wrong[it.id]?.count||0)+1,q:it}; }
+    return {it, ok, has, picked:(ss.picks[i]||[]).join('')};
+  });
+  LS.set('wrong', wrong); LS.set('stats', stats);
+  history.unshift({title:ss.title, score:ss.results.filter(r=>r.ok).length, total:ss.results.filter(r=>r.has).length, ts:Date.now()});
+  history = history.slice(0,20); LS.set('hist', history);
+  go('result');
+}
+function renderResult(){
+  const ss = S.session, rs = ss.results;
+  const has = rs.filter(r=>r.has);
+  const score = has.length? Math.round(rs.filter(r=>r.ok).length/has.length*100) : 0;
+  const wrongs = rs.filter(r=>r.has && !r.ok);
+  const noans = rs.filter(r=>!r.has);
+  $('#app').innerHTML = `
+  <div class="card scorewrap">
+    <div class="big">${score}<span style="font-size:1.4rem">分</span></div>
+    <div class="sub">${esc(ss.title)} · 用时 ${fmtTime(Date.now()-ss.start)}</div>
+    <div class="rgrid">
+      <div class="stat"><b>${rs.filter(r=>r.ok).length}</b><span>答对</span></div>
+      <div class="stat"><b>${wrongs.length}</b><span>答错</span></div>
+      <div class="stat"><b>${noans.length}</b><span>未收录答案</span></div>
+    </div>
+    <div class="btnrow">
+      ${wrongs.length?`<button class="btn pri" onclick="redoWrong()">只重做错题（${wrongs.length}）</button>`:''}
+      <button class="btn" onclick="S.session.idx=0;S.session.picks={};S.session.locked={};S.session.start=Date.now();go('quiz')">整卷重做</button>
+      <button class="btn ghost" onclick="go('home')">返回首页</button>
+    </div>
+  </div>
+  ${noans.length?`<div class="card"><h2>⚠ 未收录答案的题</h2><div class="meta" style="font-size:.85rem;color:var(--sub)">以下 ${noans.length} 题暂无参考答案（不影响计分）：${noans.map(r=>r.it.from).join('、')}</div></div>`:''}
+  ${wrongs.length?`<div class="card wronglist"><h2>❌ 错题解析（${wrongs.length}）</h2>${wrongs.map(r=>`
+    <div class="item"><div class="qq">${esc(r.it.q)}</div>
+      <div>你的答案：<b style="color:var(--bad)">${r.picked||'未作答'}</b> ｜ 正确答案：<span class="aa">${letters(r.it.answer)}</span></div>
+      ${r.it.explain?`<div style="margin-top:4px;color:var(--sub)">${esc(r.it.explain)}</div>`:''}
+      ${r.it.source?`<div style="margin-top:2px;font-size:.76rem;color:var(--sub)">出处：${esc(r.it.source)}</div>`:''}</div>`).join('')}</div>`:''}`;
+}
+function redoWrong(){
+  const ss = S.session;
+  const items = ss.results.filter(r=>r.has&&!r.ok).map(r=>r.it);
+  S.session = newSession(ss.title+'·错题重做', items, 'practice');
+  go('quiz');
+}
+
+/* ============ 错题本 / 收藏夹 ============ */
+function renderWrongFav(kind){
+  const src = kind==='wrong'? wrong : favs;
+  const items = Object.values(src).filter(v=>v.q);
+  $('#app').innerHTML = `
+  <div class="quiztop">
+    <button class="btn ghost" onclick="go('home')">←</button>
+    <div style="flex:1;font-weight:700">${kind==='wrong'?'❌ 错题本':'⭐ 收藏夹'} <span style="color:var(--sub);font-weight:400;font-size:.85rem">${items.length} 题</span></div>
+    ${items.length?`<button class="btn pri" onclick="startWrongFav('${kind}')">开始练习</button>`:''}
+  </div>
+  ${items.length? items.map((v,i)=>`<div class="rowitem">
+      <div class="grow"><div class="qq">${i+1}. ${esc(v.q.q).slice(0,90)}</div>
+      <div class="meta">${esc(v.q.from)} · ${v.q.type==='multi'?'多选':'单选'}${kind==='wrong'&&v.count>1?` · 错 ${v.count} 次`:''}</div></div>
+      <button class="del" onclick="rmItem('${kind}','${esc(v.q.id)}')">移除</button></div>`).join('')
+    : '<div class="card empty">暂无内容</div>'}`;
+}
+function rmItem(kind,id){ const src = kind==='wrong'? wrong:favs; delete src[id]; LS.set(kind==='wrong'?'wrong':'fav',src); renderWrongFav(kind); }
+
+/* ============ 其它 ============ */
+function resetAll(){
+  if(!confirm('确定清空所有练习记录、错题本、收藏？此操作不可恢复')) return;
+  ['wrong','fav','stats','hist'].forEach(k=>LS.set(k, k==='stats'?{answered:0,correct:0,byTopic:{},byPaper:{}}:[]));
+  wrong={}; favs={}; stats={answered:0,correct:0,byTopic:{},byPaper:{}}; history=[];
+  renderHome();
+}
+function showImg(src){ $('#lightboximg').src = src; $('#lightbox').style.display='flex'; }
+$('#lightbox').onclick = ()=> $('#lightbox').style.display='none';
+document.addEventListener('keydown', e=>{
+  if(S.view!=='quiz') return;
+  if('12345'.includes(e.key)){ const i=+e.key-1; const it=S.session.items[S.session.idx]; if(it&&it.options[i]) pick(String.fromCharCode(65+i)); }
+  if(e.key==='ArrowRight') nav(1);
+  if(e.key==='ArrowLeft') nav(-1);
+});
+function go(view){
+  S.view = view;
+  clearInterval(timerH);
+  document.body.dataset.view = view;
+  const nav = document.getElementById('bottomnav');
+  if(nav){
+    nav.style.display = (view==='quiz') ? 'none' : 'flex';
+    nav.querySelectorAll('button').forEach(b=>b.classList.toggle('on',
+      (b.dataset.nav===view) || (b.dataset.nav==='practice' && view==='quiz')));
+  }
+  if(view==='home') renderHome();
+  else if(view==='quiz') renderQuiz();
+  else if(view==='result') renderResult();
+  else if(view==='wrong'||view==='fav') renderWrongFav(view);
+  window.scrollTo(0,0);
+}
+/* 主题与字号 */
+function setTheme(t){ document.documentElement.dataset.theme=t; LS.set('theme',t); }
+document.documentElement.dataset.theme = LS.get('theme','light');
+</script>
+<script>
+/* 顶部工具条（主题/字号）注入 */
+(function(){
+  const bar = document.createElement('div');
+  bar.style.cssText='display:flex;justify-content:flex-end;gap:6px;padding:8px 2px 0';
+  bar.innerHTML=`<button class="icobtn" onclick="setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark')">🌓 主题</button>
+  <button class="icobtn" onclick="zoom(-1)">A⁻</button><button class="icobtn" onclick="zoom(1)">A⁺</button>`;
+  function zoom(d){ const cur=parseInt(getComputedStyle(document.documentElement).fontSize); document.documentElement.style.fontSize=Math.max(13,Math.min(21,cur+d*1))+'px'; }
+  window.zoom=zoom;
+  const app=document.getElementById('app');
+  app.parentNode.insertBefore(bar, app);
+})();
+go('home');
+</script>
+</body>
+</html>
