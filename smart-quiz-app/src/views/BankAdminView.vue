@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { api, m3Api, saveDialog, openDialog, hasTauri, type Overview, type ExcelPreview, type ExcelImportReport, type DupGroup } from '../api'
+import { api, m3Api, saveDialog, openDialog, hasTauri, type Overview, type ExcelPreview, type ExcelImportReport, type DupGroup, type BankPackReport } from '../api'
 
-const tab = ref<'import' | 'dedup' | 'banks'>('import')
+const tab = ref<'import' | 'dedup' | 'banks' | 'pack'>('import')
 const ov = ref<Overview | null>(null)
 
 // ---- 导入向导（3步） ----
@@ -46,6 +46,25 @@ async function doImport() {
 }
 function restart() { step.value = 1; filePath.value = ''; preview.value = null; report.value = null; msg.value = '' }
 
+// ---- 题库包导入（.smartbank，公开版自备数据包） ----
+const packPath = ref('')
+const packReport = ref<BankPackReport | null>(null)
+const packBusy = ref(false)
+async function pickPack() {
+  const p = await openDialog({ filters: [{ name: '题库包', extensions: ['smartbank'] }] })
+  if (!p) return
+  packPath.value = p
+  packReport.value = null
+}
+async function importPack() {
+  if (!packPath.value) return
+  packBusy.value = true
+  try {
+    packReport.value = await m3Api.importBankPack(packPath.value)
+    ov.value = await api.overview()
+  } catch (e: any) { msg.value = '❌ ' + e } finally { packBusy.value = false }
+}
+
 // ---- 去重 ----
 const groups = ref<DupGroup[]>([])
 const scanning = ref('')
@@ -80,6 +99,7 @@ onMounted(async () => { ov.value = await api.overview() })
     <button class="chip" :style="tab==='import'?'background:var(--brand);color:var(--brand-ink)':''" @click="tab='import'">📥 Excel 导入</button>
     <button class="chip" :style="tab==='dedup'?'background:var(--brand);color:var(--brand-ink)':''" @click="tab='dedup'">🔍 去重合并</button>
     <button class="chip" :style="tab==='banks'?'background:var(--brand);color:var(--brand-ink)':''" @click="tab='banks'">📚 题库列表</button>
+    <button class="chip" :style="tab==='pack'?'background:var(--brand);color:var(--brand-ink)':''" @click="tab='pack'">📦 题库包导入</button>
   </div>
 
   <!-- 导入向导 -->
@@ -133,6 +153,29 @@ onMounted(async () => { ov.value = await api.overview() })
         </div>
         <p class="hint">题库「{{ report.bank_name }}」（{{ report.bank_id }}）已创建，可在练习/组卷中使用。</p>
         <button class="btn pri" @click="restart">继续导入</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- 题库包导入（.smartbank） -->
+  <template v-else-if="tab==='pack'">
+    <div class="card">
+      <p class="hint" style="margin-bottom:12px">
+        导入 <b>.smartbank</b> 题库包（题库+试卷+配图的打包格式，含出处与置信度）。
+        官方资料整理的题库因版权不随软件分发，请通过项目发布页获取数据包，或用 <b>Excel 导入</b> 自建题库。
+      </p>
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+        <button class="btn pri" @click="pickPack()">选择题库包文件…</button>
+        <button v-if="!hasTauri" class="btn ghost" @click="packPath = 'demo.smartbank'; packReport = null">使用演示包（mock）</button>
+        <span v-if="packPath" class="meta" style="word-break:break-all">{{ packPath }}</span>
+      </div>
+      <div v-if="packPath" style="margin-top:12px">
+        <button class="btn pri" :disabled="packBusy" @click="importPack()">{{ packBusy ? '导入中…' : '导入' }}</button>
+      </div>
+      <div v-if="packReport" class="rowitem" style="margin-top:12px">
+        <div class="meta">
+          {{ packReport.skipped ? '同版本已存在，跳过导入' : `✅ 已导入「${packReport.bank_name}」：${packReport.questions} 题 · ${packReport.papers} 套试卷 · ${packReport.images} 张配图` }}
+        </div>
       </div>
     </div>
   </template>

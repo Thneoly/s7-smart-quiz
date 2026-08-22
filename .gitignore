@@ -26,6 +26,12 @@ smart-quiz-app/src-tauri/gen/schemas/
 题库资料/shots/
 题库资料/refdata_transcripts.json
 
+# ===== 版权数据：公开仓不含（本机保留，应用内导入数据包） =====
+考试模拟卷/
+题库资料/
+smart-quiz-app/src-tauri/resources/docs/docs.docpack
+smart-quiz-app/src-tauri/resources/seed/*.smartbank
+
 # ===== 系统/编辑器 =====
 .DS_Store
 Thumbs.db

@@ -1,52 +1,62 @@
-# S7-200 SMART 认证备考项目
+# S7-200 SMART 题库平台
 
-> 本地优先的题库与学习平台：官方资料 → 多智能体题库 → Tauri 桌面应用。
-> Git monorepo · 当前版本 v0.1.0 · 详细管理规范见 [docs/项目管理.md](docs/项目管理.md)
+> 本地优先的 PLC 认证备考桌面应用：考试/练习/间隔复习/错题本/资料速查/全文检索。
+> Tauri 2 + Vue 3 + Rust(SQLite/FTS5)，单安装包 ~10MB，零遥测。
+> **代码开源；题库与语料数据因版权不随仓库分发**（见下方"数据包"）。
 
-## 目录结构
+## 功能
 
-```
-D:\PLC\s7-200\
-├── smart-quiz-app/            # ⭐ Tauri2+Vue3 桌面应用（唯一产品，自包含）
-│   ├── src-tauri/             #   Rust 后端（题库/会话/SM-2/组卷/导入/去重/检索/更新）
-│   ├── src/                   #   前端（学习/练习/考试/错题本/资料速查/管理/设置）
-│   ├── tests/                 #   Playwright E2E
-│   ├── resources/             #   种子题库+检索语料（随仓库分发，构建不依赖外部）
-│   └── make_update_manifest.py#   发布：更新清单生成
-├── 考试模拟卷/                  # 数据源：5套真题md（外部抓取存档）+ 题库md/json + 配图
-├── 题库资料/                    # 源数据：questions/answers（AI产出可编辑源）、guide_stages
-│                              #   （提取语料已 ignore，本地保留可再生）
-├── scripts/                   # 数据流水线（10/11抓取 12解析 20合并 21修正 30种子 32语料 40指南 41速查）
-├── docs/                      # 设计方案/学习指南/项目管理
-└── blogs/                     # 技术博客4篇
-```
+- **考试模式**：真题模拟卷、蓝图组卷（题型配比/难度/章节筛选）、限时与断点续考
+- **练习模式**：六种模式（顺序/随机/章节/错题/收藏/待复审），单选即判、多选全对才得分
+- **间隔复习**：SM-2 修正版（答错重置、低置信度不判分）
+- **错题本 / 收藏 / 笔记**：跨题库沉淀，去重合并时数据自动迁移
+- **学习指南**：22 章官方课程结构化 + 资料速查（CPU/指令/通信/故障/公式）
+- **全文检索**：官方文档语料 jieba × FTS5 中文检索
+- **可维护性**：滚动日志、命令打点、panic 捕获、一键诊断包（零个人数据）
+- **题库管理**：Excel 导入向导、`.smartbank` 数据包导入、SimHash 去重、试卷打印
+
+## 数据包（重要）
+
+本仓库**不含**以下版权衍生数据，应用功能完整但题库为空：
+
+| 数据包 | 内容 | 导入方式 |
+|---|---|---|
+| `*.smartbank` | 题库+试卷+配图（694 题，带出处/置信度） | 题库管理 → 题库包导入；或放入 `src-tauri/resources/seed/` 后自行构建 |
+| `docs.docpack` | 官方文档检索语料（962 文档） | 资料速查 → 导入语料包；或放入 `src-tauri/resources/docs/` |
+
+获取渠道：项目发布页（Release/网盘）。拥有自己的源资料时，也可按 `scripts/README.md` 的流水线自建数据包，或用应用内 Excel 导入向导自建题库。
 
 ## 快速开始
 
 ```bash
-# 桌面应用（开发）
+# 克隆后（无数据包也能跑通：界面/学习指南/速查可用，题库为空）
 cd smart-quiz-app && npm install && npm run tauri dev
 
-# 测试
-cd smart-quiz-app/src-tauri && cargo test          # 后端 11 项
-cd .. && .venv/Scripts/python.exe tests/e2e_m1.py  # 前端 E2E（vite 自动拉起）
-
-# 数据流水线（改题库后重跑，详见 docs/项目管理.md）
-.venv/Scripts/python.exe scripts/20_merge_bank.py && .venv/Scripts/python.exe scripts/30_pack_seed.py
+# 测试（cargo 12 项 + E2E 67 项，无需数据包）
+cd src-tauri && cargo test
+cd .. && ../.venv/Scripts/python.exe tests/e2e_m1.py
 ```
 
-## 数据与规模
+## 目录结构
 
-| 项 | 值 |
-|---|---|
-| 题库 | 694 题（10 主题 344 题 + A~E 真题 350 题，全部带答案/解析/出处/置信度） |
-| 学习指南 | 官方 22 章课程结构化（目标/要点/时长/优先级/配套练习） |
-| 资料速查 | 211 条结构化数据（CPU/指令/通信/故障/公式） |
-| 全文检索 | 962 个官方文档，jieba×FTS5，0.42ms |
-| 安装包 | 9.5MB（NSIS + minisign 更新签名） |
+```
+├── smart-quiz-app/            # ⭐ 应用（自包含代码，Rust 后端 + Vue 前端 + E2E）
+│   ├── src-tauri/resources/   #   seed/ 与 docs/：数据包目录（仅 README 占位）
+│   └── make_update_manifest.py#   发布：更新清单生成
+├── scripts/                   # 数据流水线（哪些需本地私有数据，见 scripts/README.md）
+├── docs/                      # 设计方案/学习指南/项目管理
+└── blogs/                     # 技术博客系列
+# 题库资料/、考试模拟卷/ 为本机私有数据目录，不入库
+```
+
+## 架构速览
+
+- **Rust 权威引擎**：判分/SM-2/组卷只在后端；SQLite WAL，复合主键 (bank_id, qid)
+- **数据可信链路**：题目带出处/置信度，低置信度不参与判分、可标待复审
+- **隐私**：零遥测、更新检查默认关、日志不含题目内容与用户输入、诊断包可放心外发
 
 ## 质量红线
 
-- main 分支保持 cargo 11 项 + E2E 47 项全绿
-- 题库答案改动必须过校验工作流（低置信度不参与判分）
-- 签名私钥 `~/.tauri/smartquiz.key` 永不入库
+- main 分支保持 cargo 12 项 + E2E 67 项全绿
+- 签名私钥 `~/.s7-200smart/smartquiz.key` 永不入库（1Password 归档，见 docs/项目管理.md）
+- **版权数据（题库/语料/真题）永不提交**——.gitignore 已设防，提交前自查

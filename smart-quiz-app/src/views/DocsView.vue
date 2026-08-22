@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { docsApi, hasTauri, type DocHit, type DocsStatus } from '../api'
+import { docsApi, hasTauri, openDialog, type DocHit, type DocsStatus } from '../api'
 import refdata from '../study/refdata.json'
 
 interface RefItem { name: string; category: string; fields: [string, string][]; note: string; source: string }
@@ -49,6 +49,19 @@ async function ensureIndex() {
     } catch (e: any) { alert('索引构建失败：' + e) }
     finally { building.value = false }
   }
+}
+// 导入语料包后强制重建索引（公开版自备数据包；导入的优先于安装包内置）
+async function importPack() {
+  const p = await openDialog({ filters: [{ name: '语料包', extensions: ['docpack'] }] })
+  if (!p) return
+  building.value = true
+  try {
+    await docsApi.importPack(p)
+    const n = await docsApi.build(true)
+    st.value = await docsApi.status()
+    alert(`语料包导入完成，索引已重建：${n} 个文档块`)
+  } catch (e: any) { alert('语料包导入失败：' + e) }
+  finally { building.value = false }
 }
 async function doSearch() {
   if (!q.value.trim()) return
@@ -115,7 +128,8 @@ function switchTab(t: string) {
       </div>
       <p class="hint" style="margin-top:8px">
         <template v-if="hasTauri">索引：{{ st?.chunks ?? 0 }} 个文档块（jieba 分词 × FTS5）<span v-if="st?.built_at"> · 构建于 {{ new Date(st.built_at).toLocaleString() }}</span></template>
-        <template v-else>浏览器 Mock 模式：返回示例结果；Tauri 环境下搜索 962 个真实文档</template>
+        <template v-else>浏览器 Mock 模式：返回示例结果；Tauri 环境下搜索真实文档</template>
+        <button v-if="hasTauri" class="btn" style="margin-left:10px" :disabled="building" @click="importPack()">📦 导入语料包（.docpack）…</button>
       </p>
     </div>
     <div v-for="(h, i) in hits" :key="i" class="rowitem">

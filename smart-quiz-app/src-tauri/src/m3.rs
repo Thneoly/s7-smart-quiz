@@ -436,6 +436,7 @@ mod tests {
         std::fs::create_dir_all(&tmp).unwrap();
         let bankconn = crate::db::open(&tmp.join("bank.db")).unwrap();
         let seed = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/seed/smart-core.smartbank");
+        if !seed.exists() { eprintln!("种子不存在，跳过（公开仓无数据包，先运行 30_pack_seed.py）"); return; }
         bank::import(&bankconn, &seed, &tmp.join("banks"), true).unwrap();
         let p = paper_print_data(&bankconn, 1).unwrap();
         assert!(p.total_count > 0);

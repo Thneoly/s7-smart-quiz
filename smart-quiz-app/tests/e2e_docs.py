@@ -46,6 +46,8 @@ try:
         n_hit = pg.locator('.rowitem').count()
         check(f'全文检索mock结果（{n_hit}）', n_hit == 2)
         check('结果显示出处标签', '系统手册' in (pg.text_content('.main') or '') or '指令帮助' in (pg.text_content('.main') or ''))
+        # 语料包导入按钮：仅应用内显示（mock 模式隐藏）
+        check('语料包导入按钮按环境隐藏', pg.locator('button:has-text("导入语料包")').count() == 0)
         # 各tab切换不报错
         for t in ['通信速查', '故障诊断', '公式换算']:
             pg.click(f'.chip:has-text("{t}")')

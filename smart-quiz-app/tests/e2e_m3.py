@@ -38,6 +38,17 @@ try:
         pg.wait_for_timeout(400)
         check('题库列表含导入库', '我的Excel题库' in (pg.text_content('.main') or '') or 'mock' in (pg.text_content('.main') or ''))
 
+        # 2b 题库包导入（.smartbank，公开版自备数据包入口）
+        pg.click('.chip:has-text("题库包导入")')
+        pg.wait_for_timeout(400)
+        check('题库包说明可见', 'smartbank' in (pg.text_content('.main') or ''))
+        pg.click('button:has-text("使用演示包")')
+        pg.wait_for_timeout(300)
+        pg.click('button:text-is("导入")')
+        pg.wait_for_timeout(600)
+        body = pg.text_content('.main') or ''
+        check('题库包导入报告', '已导入' in body and '694 题' in body)
+
         # 3 打印试卷
         pg.click('.side button:has-text("考试")')
         pg.wait_for_timeout(600)

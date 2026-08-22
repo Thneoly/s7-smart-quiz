@@ -321,10 +321,13 @@ async fn docs_build(state: tauri::State<'_, AppState>, app: tauri::AppHandle, fo
         let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
         let pack = {
             let candidates = [
+                // 用户应用内导入的数据包优先于内置资源（公开仓构建无内置）
+                data_dir.join("docs/docs.docpack"),
                 app.path().resource_dir().map_err(|e| e.to_string())?.join("docs/docs.docpack"),
                 std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/docs/docs.docpack"),
             ];
-            candidates.into_iter().find(|p| p.exists()).ok_or("docs.docpack 未找到")?
+            candidates.into_iter().find(|p| p.exists())
+                .ok_or("docs.docpack 未找到——请先在「资料速查」导入语料包，或将其放入 resources/docs/")?
         };
         let docs_dir = data_dir.join("docs");
         let force = force.unwrap_or(false);
@@ -395,6 +398,35 @@ async fn paper_print_data(state: tauri::State<'_, AppState>, paper_id: i64) -> R
     timed("paper_print_data", false, || {
         let b = state.bank.lock().map_err(|e| e.to_string())?;
         m3::paper_print_data(&b, paper_id)
+    })
+}
+
+// ---------- M3：数据包导入（公开仓不含版权数据，用户自备数据包） ----------
+#[tauri::command]
+async fn import_bank_file(state: tauri::State<'_, AppState>, app: tauri::AppHandle, path: String)
+    -> Result<bank::ImportReport, String> {
+    timed("import_bank_file", false, || {
+        if !path.to_lowercase().ends_with(".smartbank") {
+            return Err("仅支持 .smartbank 题库包".into());
+        }
+        let b = state.bank.lock().map_err(|e| e.to_string())?;
+        let banks_root = app.path().app_data_dir().map_err(|e| e.to_string())?.join("banks");
+        std::fs::create_dir_all(&banks_root).map_err(|e| e.to_string())?;
+        bank::import(&b, std::path::Path::new(&path), &banks_root, false)
+    })
+}
+
+#[tauri::command]
+async fn import_docpack(app: tauri::AppHandle, path: String) -> Result<u64, String> {
+    timed("import_docpack", false, || {
+        if !path.to_lowercase().ends_with(".docpack") {
+            return Err("仅支持 .docpack 语料包".into());
+        }
+        let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("docs");
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let n = std::fs::copy(&path, dir.join("docs.docpack")).map_err(|e| e.to_string())?;
+        log::info!(target: "docs", "语料包已导入（{n} 字节），建议重建索引");
+        Ok(n)
     })
 }
 
@@ -501,7 +533,8 @@ pub fn run() {
             docs_status, docs_build, docs_search,
             excel_preview, excel_import, export_excel_template,
             dedup_scan, dedup_merge, paper_print_data,
-            logs_read, open_log_dir
+            logs_read, open_log_dir,
+            import_bank_file, import_docpack
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

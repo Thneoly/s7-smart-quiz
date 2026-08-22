@@ -332,6 +332,7 @@ mod tests {
         let bankconn = crate::db::open(&tmp.join("bank.db")).unwrap();
         let user = crate::db::open_user(&tmp.join("user.db")).unwrap();
         let seed = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/seed/smart-core.smartbank");
+        if !seed.exists() { eprintln!("种子不存在，跳过（公开仓无数据包，先运行 30_pack_seed.py）"); return; }
         crate::bank::import(&bankconn, &seed, &tmp.join("banks"), true).unwrap();
 
         // 1) 正常组卷：40单+10多（种子库 active&high 足够）
