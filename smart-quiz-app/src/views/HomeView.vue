@@ -2,13 +2,27 @@
 import { ref, onMounted } from 'vue'
 import { api, type Dashboard, type SessionInfo, type DayCount } from '../api'
 import { store } from '../store'
-import { resumeSession } from '../session-start'
+import { resumeSession, startWithQuestions } from '../session-start'
 
 const dash = ref<Dashboard | null>(null)
 const unfinished = ref<SessionInfo[]>([])
 const activity = ref<DayCount[]>([])
 const loading = ref(true)
 const acc = (d: Dashboard) => d.answered ? Math.round((d.correct / d.answered) * 100) : 0
+
+// 新手三步引导：从未做题时显示，可手动关闭
+const onboardDismissed = ref(localStorage.getItem('sq_onboard_hide') === '1')
+const showOnboard = ref(false)
+function dismissOnboard() {
+  onboardDismissed.value = true
+  showOnboard.value = false
+  localStorage.setItem('sq_onboard_hide', '1')
+}
+async function startFirst10() {
+  const qs = await api.questions({ status: 'active', limit: 10 })
+  if (!qs.length) { alert('题库为空，请先在「管理」导入题库包'); return }
+  await startWithQuestions('practice', '新手摸底 · 10题', qs)
+}
 
 // 热力图：最近 15 周（列=周，行=周一~周日）
 const heat = ref<{ date: string; count: number; level: number }[][]>([])
@@ -35,6 +49,8 @@ onMounted(async () => {
     const [d, u, a] = await Promise.all([api.dashboard(), api.unfinished(), api.activity(120)])
     dash.value = d; unfinished.value = u; activity.value = a
     buildHeat(a)
+    // 无任何做题记录且未手动关闭时展示引导
+    showOnboard.value = !onboardDismissed.value && d.answered === 0 && d.sessions_done === 0
   } finally { loading.value = false }
 })
 </script>
@@ -43,6 +59,28 @@ onMounted(async () => {
   <h2 class="pt">学习仪表盘</h2>
   <div v-if="loading" class="empty">加载中…</div>
   <template v-else>
+    <div v-if="showOnboard" class="card onboard">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <b>🚀 三步开始</b>
+        <button class="btn ghost" style="padding:3px 10px;font-size:.78rem" @click="dismissOnboard()">不再显示</button>
+      </div>
+      <div class="steps3">
+        <div class="step3" @click="store.go('study')">
+          <b>① 读第 1 章</b>
+          <span>硬件介绍 · 约 40 分钟，了解 CPU/模块家族</span>
+        </div>
+        <div class="step3" @click="startFirst10()">
+          <b>② 10 题摸底</b>
+          <span>测一下当前水平，错题自动进错题本</span>
+        </div>
+        <div class="step3" @click="store.go('wrong')">
+          <b>③ 看错题本</b>
+          <span>错题自动安排复习，答对两轮消灭</span>
+        </div>
+      </div>
+      <p class="hint" style="margin:8px 0 0">备考路径：学习指南过章节 → 章节内随手练 → 真题模拟卷 → 错题清零。做任一练习后此卡自动收起。</p>
+    </div>
+
     <div class="statrow">
       <div class="stat" @click="store.go('practice')"><b>{{ dash?.answered ?? 0 }}</b><span>累计做题</span></div>
       <div class="stat"><b>{{ dash ? acc(dash) : 0 }}%</b><span>正确率</span></div>
@@ -107,4 +145,11 @@ onMounted(async () => {
 .heat { display: flex; gap: 3px; overflow-x: auto; padding: 2px; }
 .heatcol { display: flex; flex-direction: column; gap: 3px; }
 .heatcell { width: 13px; height: 13px; border-radius: 3px; }
+.onboard { border-color: var(--brand); }
+.steps3 { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.step3 { flex: 1; min-width: 180px; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px;
+  cursor: pointer; display: flex; flex-direction: column; gap: 4px; transition: border-color .15s; }
+.step3:hover { border-color: var(--brand); }
+.step3 b { font-size: .9rem; color: var(--ink); }
+.step3 span { font-size: .78rem; color: var(--sub); line-height: 1.5; }
 </style>

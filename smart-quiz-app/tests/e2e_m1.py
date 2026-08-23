@@ -28,6 +28,11 @@ try:
 
         # 1 首页（mock 仪表盘）
         check('首页仪表盘加载', pg.locator('.stat').count() >= 4)
+        # M4：新手三步引导（无做题记录时显示，可关闭）
+        check('新手三步引导卡', pg.locator('.onboard').count() == 1)
+        pg.click('.onboard button:has-text("不再显示")')
+        pg.wait_for_timeout(200)
+        check('引导卡可关闭', pg.locator('.onboard').count() == 0)
 
         # 2 练习：章节练习
         pg.click('.side button:has-text("练习")')

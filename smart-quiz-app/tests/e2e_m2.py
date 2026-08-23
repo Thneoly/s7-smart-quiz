@@ -32,7 +32,16 @@ try:
         pg.wait_for_timeout(600)
         pg.click('button:has-text("蓝图组卷")')
         pg.wait_for_timeout(600)
-        # 默认 40单+10多，候选不足：不允许降级 → 报错
+        # M4：预设卷型一键填充
+        pg.click('button:has-text("新手摸底卷")')
+        pg.wait_for_timeout(300)
+        check('新手摸底卷预设', pg.locator('label:has-text("卷名") input').input_value() == '新手摸底卷'
+              and pg.locator('.secbox input[type=number]').first.input_value() == '25')
+        pg.click('button:has-text("全真冲刺卷")')
+        pg.wait_for_timeout(300)
+        check('全真冲刺卷预设', pg.locator('label:has-text("卷名") input').input_value() == '全真冲刺卷'
+              and pg.locator('.secbox input[type=number]').first.input_value() == '40')
+        # 全真冲刺卷不允许降级 → 组卷预览报错
         pg.click('button:has-text("组卷预览")')
         pg.wait_for_timeout(500)
         check('候选不足报错提示', '候选不足' in (pg.text_content('.main') or ''))

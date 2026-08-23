@@ -29,6 +29,14 @@ try:
         pg.wait_for_timeout(400)
         check('章节要点展开', pg.locator('.pts li').count() >= 6)
         check('配套练习chip', pg.locator('.lnks .chip').count() >= 1)
+        # M4：章节纵深三块（mock 检索有返回 / refdata 静态过滤 / mock 题库含硬件与选型题）
+        pg.wait_for_timeout(700)
+        check('手册原文选段', pg.locator('.docHit').count() >= 1)
+        check('关联速查命中', pg.locator('.refItem').count() >= 1)
+        check('考点真题随手练', pg.locator('.miniQ').count() >= 1)
+        pg.locator('.miniQ .mopt').first.click()
+        pg.wait_for_timeout(300)
+        check('随手练即时判定', pg.locator('.miniQ .judge').count() == 1)
         # 标记已读 → 进度变化
         before = pg.text_content('.card b') or ''
         pg.locator('.rd input').first.check()

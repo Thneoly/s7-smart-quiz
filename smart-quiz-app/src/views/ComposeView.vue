@@ -21,6 +21,28 @@ onMounted(async () => { ov.value = await api.overview() })
 function addSection() { sections.value.push({ type: 'single', qty: 10, topics: [], dmin: 1, dmax: 5, useDiff: false }) }
 function delSection(i: number) { sections.value.splice(i, 1) }
 
+// 预设卷型：一键填充蓝图（新手摸底=跨章节快速定位薄弱点；全真冲刺=按认证卷面配比）
+function applyPreset(kind: 'starter' | 'full') {
+  report.value = null
+  if (kind === 'starter') {
+    name.value = '新手摸底卷'
+    timeLimit.value = 25
+    allowFallback.value = true
+    sections.value = [
+      { type: 'single', qty: 25, topics: [], dmin: 1, dmax: 5, useDiff: false },
+      { type: 'multi', qty: 5, topics: [], dmin: 1, dmax: 5, useDiff: false },
+    ]
+  } else {
+    name.value = '全真冲刺卷'
+    timeLimit.value = 90
+    allowFallback.value = false
+    sections.value = [
+      { type: 'single', qty: 40, topics: [], dmin: 1, dmax: 5, useDiff: false },
+      { type: 'multi', qty: 10, topics: [], dmin: 1, dmax: 5, useDiff: false },
+    ]
+  }
+}
+
 async function compose() {
   busy.value = 'compose'; err.value = ''
   try {
@@ -48,6 +70,11 @@ const typeLabel: Record<string, string> = { single: '单选', multi: '多选' }
 <template>
   <h2 class="pt">蓝图组卷 <span class="hint">按题型/主题/难度抽题 · 候选不足自动降级</span></h2>
   <div class="card">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <span class="hint" style="align-self:center">快速开始：</span>
+      <button class="chip" @click="applyPreset('starter')">🧭 新手摸底卷（25单+5多 · 25分钟）</button>
+      <button class="chip" @click="applyPreset('full')">🏁 全真冲刺卷（40单+10多 · 90分钟）</button>
+    </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
       <label>卷名 <input v-model="name" style="padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)" /></label>
       <label>限时 <input v-model.number="timeLimit" type="number" min="10" style="width:70px;padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)" /> 分钟</label>
