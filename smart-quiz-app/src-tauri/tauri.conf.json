@@ -24,15 +24,22 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE5MkRCRjk4RDgyOTZERTQKUldUa2JTblltTDh0cVV0ZkJLL05tcHlESWxtT2R0K1dFMWtOZnk4UURSZERWZXNxejl6VzBWdDIK",
-      "endpoints": ["https://example.com/smartquiz/updates/latest.json"]
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEExRDkxRUU4MkM3QkRDNUQKUldSZDNIc3M2Qjdab1Z3TnhXTmltQ3ZMMHFJU3Frd2NpbHpFM002am1Ub1lkQVd3d0wxUDRFVXgK",
+      "endpoints": [
+        "https://example.com/smartquiz/updates/latest.json"
+      ]
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "createUpdaterArtifacts": true,
-    "resources": ["resources/seed/*", "resources/docs/*"],
+    "resources": [
+      "resources/seed/*",
+      "resources/docs/*"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -42,7 +49,9 @@
     ],
     "windows": {
       "nsis": {
-        "languages": ["SimpChinese"],
+        "languages": [
+          "SimpChinese"
+        ],
         "displayLanguageSelector": false
       }
     }
