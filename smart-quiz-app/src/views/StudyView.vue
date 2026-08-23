@@ -196,7 +196,7 @@ onMounted(async () => {
               <button v-for="opt in q.options" :key="opt" class="mopt" :class="optCls(c, q, opt)"
                 @click="pick(c, q, optLetter(opt))">{{ opt }}</button>
             </div>
-            <div v-if="q.qtype === 'multi' && !sent(c, q) && (chPick[qkey(c, q)] ?? '').length >= 2" style="margin-top:6px">
+            <div v-if="q.qtype === 'multi' && !sent(c, q) && (chPick[qkey(c, q)] ?? '').length >= 1" style="margin-top:6px">
               <button class="btn" @click="chSent[qkey(c, q)] = true">提交多选</button>
             </div>
             <div v-if="judgeCls(c, q)" class="judge" :class="judgeCls(c, q)">

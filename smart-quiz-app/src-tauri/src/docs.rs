@@ -88,7 +88,8 @@ fn insert_chunk(tx: &rusqlite::Transaction, jb: &jieba_rs::Jieba, path: &str, ti
     Ok(())
 }
 
-pub fn search(conn: &Connection, query: &str, limit: i64) -> Result<Vec<DocHit>, String> {    ensure_schema(conn)?;
+pub fn search(conn: &Connection, query: &str, limit: i64) -> Result<Vec<DocHit>, String> {
+    ensure_schema(conn)?;
     let jb = jieba_rs::Jieba::new();
     let toks: Vec<String> = jb.cut(query, true).iter().map(|t| t.word)
         .filter(|s| !s.trim().is_empty()).map(|s| s.to_string()).collect();
@@ -163,6 +164,30 @@ mod tests {
         assert_eq!(resolve_docpack(&user_dir, Some(&res_dir)).unwrap(), user_dir.join("docs/docs.docpack"));
         // resource_dir 缺失（None）时用户导入仍可命中
         assert_eq!(resolve_docpack(&user_dir, None).unwrap(), user_dir.join("docs/docs.docpack"));
+        std::fs::remove_dir_all(&tmp).ok();
+    }
+
+    /// 学习页"手册原文"块的检索词表（与前端 src/study/chapter_links.ts 同步维护）。
+    /// FTS 为 AND 语义：检索词必须精简，且每个词对真实语料非空命中——
+    /// 此测试防止词表改动后章节原文块静默变空。
+    #[test]
+    fn study_doc_queries_hit() {
+        let queries = [
+            "扩展模块", "存储区", "接线", "编程软件", "定时器", "电机", "状态图表",
+            "子程序", "中断", "PWM", "高速计数器", "PID", "Modbus", "CRC", "运动控制",
+            "存储卡", "字符串", "PUT", "PROFINET", "自由口", "UDP", "TCP",
+        ];
+        let tmp = std::env::temp_dir().join(format!("sqhit-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp).unwrap();
+        let conn = crate::db::open(&tmp.join("bank.db")).unwrap();
+        let pack = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/docs/docs.docpack");
+        if !pack.exists() { eprintln!("docpack 不存在，跳过"); return; }
+        build_index(&conn, &pack, &tmp.join("docs"), false).unwrap();
+        let mut misses: Vec<&str> = Vec::new();
+        for q in queries {
+            if search(&conn, q, 3).unwrap().is_empty() { misses.push(q); }
+        }
+        assert!(misses.is_empty(), "以下检索词零命中（章节原文块会空）：{misses:?}");
         std::fs::remove_dir_all(&tmp).ok();
     }
 }

@@ -19,9 +19,14 @@ function dismissOnboard() {
   localStorage.setItem('sq_onboard_hide', '1')
 }
 async function startFirst10() {
-  const qs = await api.questions({ status: 'active', limit: 10 })
-  if (!qs.length) { alert('题库为空，请先在「管理」导入题库包'); return }
-  await startWithQuestions('practice', '新手摸底 · 10题', qs)
+  // 摸底要跨章节随机：拉足量后洗牌取 10（直接 limit:10 会拿到同章节连续题）
+  const pool = await api.questions({ status: 'active', limit: 500 })
+  if (!pool.length) { alert('题库为空，请先在「管理」导入题库包'); return }
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  await startWithQuestions('practice', '新手摸底 · 10题', pool.slice(0, 10))
 }
 
 // 热力图：最近 15 周（列=周，行=周一~周日）
