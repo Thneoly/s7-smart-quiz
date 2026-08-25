@@ -156,9 +156,10 @@ mod tests {
         let res_dir = tmp.join("res");
         std::fs::create_dir_all(user_dir.join("docs")).unwrap();
         std::fs::create_dir_all(res_dir.join("docs")).unwrap();
-        // 仅内置存在 → 取内置
-        std::fs::write(res_dir.join("docs/docs.docpack"), b"r").unwrap();
-        assert_eq!(resolve_docpack(&user_dir, Some(&res_dir)).unwrap(), res_dir.join("docs/docs.docpack"));
+        // 仅内置存在 → 取内置（打包布局：<resource>/resources/docs/）
+        std::fs::create_dir_all(res_dir.join("resources/docs")).unwrap();
+        std::fs::write(res_dir.join("resources/docs/docs.docpack"), b"r").unwrap();
+        assert_eq!(resolve_docpack(&user_dir, Some(&res_dir)).unwrap(), res_dir.join("resources/docs/docs.docpack"));
         // 用户导入优先于内置
         std::fs::write(user_dir.join("docs/docs.docpack"), b"u").unwrap();
         assert_eq!(resolve_docpack(&user_dir, Some(&res_dir)).unwrap(), user_dir.join("docs/docs.docpack"));
@@ -196,7 +197,7 @@ mod tests {
 /// 公开仓克隆者无内置资源，靠第一级或最后一级。
 pub fn resolve_docpack(data_dir: &Path, resource_dir: Option<&Path>) -> Result<std::path::PathBuf, String> {
     let mut candidates = vec![data_dir.join("docs/docs.docpack")];
-    if let Some(r) = resource_dir { candidates.push(r.join("docs/docs.docpack")); }
+    if let Some(r) = resource_dir { candidates.push(r.join("resources/docs/docs.docpack")); }
     candidates.push(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/docs/docs.docpack"));
     candidates.into_iter().find(|p| p.exists())
         .ok_or_else(|| "docs.docpack 未找到——请先在「资料速查」导入语料包，或将其放入 resources/docs/".into())

@@ -49,7 +49,9 @@ pub fn run() {
 
             // 导入内置种子题库（打包 resources 或开发目录；公开仓克隆者无种子，引导应用内导入）
             let seed_dirs = [
-                app.path().resource_dir()?.join("seed"),
+                // Tauri 打包约定：resources 配置项保留相对路径，安装/便携布局为 <exe目录>/resources/seed/
+                //（第二项开发目录回退仅在本机构建机存在——分发物勿依赖）
+                app.path().resource_dir()?.join("resources/seed"),
                 PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/seed"),
             ];
             for dir in seed_dirs {
