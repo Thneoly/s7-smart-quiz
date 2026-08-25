@@ -491,14 +491,16 @@ pub mod commands {
 mod tests {
     use super::*;
 
-    fn env() -> (Connection, Connection, std::path::PathBuf) {
+    /// 公开仓无数据包时返回 None——依赖种子的用例整体跳过（而不是空库硬跑）
+    fn env() -> Option<(Connection, Connection, std::path::PathBuf)> {
+        let seed = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/seed/smart-core.smartbank");
+        if !seed.exists() { eprintln!("种子不存在，跳过（公开仓无数据包，先运行 30_pack_seed.py）"); return None; }
         let tmp = std::env::temp_dir().join(format!("squser-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&tmp).unwrap();
         let bank = crate::db::open(&tmp.join("bank.db")).unwrap();
         let user = crate::db::open_user(&tmp.join("user.db")).unwrap();
-        let seed = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/seed/smart-core.smartbank");
-        if seed.exists() { bank::import(&bank, &seed, &tmp.join("banks"), true).unwrap(); }
-        (bank, user, tmp)
+        bank::import(&bank, &seed, &tmp.join("banks"), true).unwrap();
+        Some((bank, user, tmp))
     }
     fn pick_qids(bankconn: &Connection, n: usize) -> Vec<(String, String)> {
         bank::list_questions(bankconn, None, None, Some("active".into()), None, n as i64, 0).unwrap()
@@ -536,7 +538,7 @@ mod tests {
 
     #[test]
     fn session_finish_flow() {
-        let (bankconn, user, tmp) = env();
+        let Some((bankconn, user, tmp)) = env() else { return };
         let qids = pick_qids(&bankconn, 3);
         let qs = bank::get_questions_by_ids(&bankconn, &qids).unwrap();
         let sid = start_session(&user, "practice", "测试练习", "smart-core", None, &qids, None).unwrap().session_id;
@@ -585,7 +587,7 @@ mod tests {
 
     #[test]
     fn draft_resume_persistence() {
-        let (bankconn, user, tmp) = env();
+        let Some((bankconn, user, tmp)) = env() else { return };
         let qids = pick_qids(&bankconn, 2);
         let s = start_session(&user, "exam", "A卷", "smart-core", Some(1), &qids, Some(5400)).unwrap();
         let mut d = Draft::default();
