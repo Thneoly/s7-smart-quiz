@@ -37,3 +37,9 @@ smart-quiz-app/src-tauri/resources/seed/*.smartbank
 Thumbs.db
 *.log
 .claude/
+
+# ===== 密钥防泄漏（2026-08-25 事故：PowerShell 不展开 ~ 导致密钥进了仓库）=====
+~/
+.s7-200smart/
+*.key
+*.key.pub
