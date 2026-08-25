@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
-import sys, io, os, time, subprocess
+import sys, io, os, time, socket, subprocess
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from playwright.sync_api import sync_playwright
 proc = subprocess.Popen(['npm', 'run', 'dev'], cwd=os.environ.get('SQ_APP_DIR', 'D:/PLC/s7-200/smart-quiz-app'),
-                        shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-time.sleep(5)
+                        shell=(os.name == 'nt'), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+for _ in range(90):
+    try:
+        socket.create_connection(('127.0.0.1', 1420), 0.5).close()
+        break
+    except OSError:
+        time.sleep(1)
 errs, fails = [], []
 def check(name, cond):
     print(('✓' if cond else '✗ FAIL'), name)
