@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """M1 E2E（mock 模式）：练习判分→交卷→结果→错题本→断点续考→考试模式→历史"""
-import sys, io, time, subprocess
+import sys, io, os, time, subprocess
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 from playwright.sync_api import sync_playwright
 
-proc = subprocess.Popen(['npm', 'run', 'dev'], cwd='D:/PLC/s7-200/smart-quiz-app',
+proc = subprocess.Popen(['npm', 'run', 'dev'], cwd=os.environ.get('SQ_APP_DIR', 'D:/PLC/s7-200/smart-quiz-app'),
                         shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 time.sleep(5)
 errs, fails = [], []
@@ -14,7 +14,7 @@ def check(name, cond):
 
 try:
     with sync_playwright() as p:
-        b = p.chromium.launch(channel='msedge', headless=True)
+        b = p.chromium.launch(channel=None if __import__('os').environ.get('SQ_BROWSER') == 'chromium' else __import__('os').environ.get('SQ_BROWSER', 'msedge'), headless=True)
         pg = b.new_page(viewport={'width': 1280, 'height': 900})
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.on('dialog', lambda d: d.accept())
@@ -120,11 +120,11 @@ try:
         pg.wait_for_timeout(900)
         check('首页累计做题>0', any(c.isdigit() and int(c) > 0 for c in [(pg.locator('.stat b').nth(0).text_content() or '0')]))
 
-        pg.screenshot(path='D:/PLC/s7-200/题库资料/shots/09_M1首页.png', full_page=False)
+        (os.path.isdir(os.environ.get('SQ_SHOTS', 'D:/PLC/s7-200/题库资料/shots')) and pg.screenshot(path=os.path.join(os.environ.get('SQ_SHOTS', 'D:/PLC/s7-200/题库资料/shots'), '09_M1首页.png'), full_page=False))
         b.close()
 finally:
     # Windows: terminate() 只杀 npm 外壳，node(vite) 子进程会残留占住 1420 端口——按进程树击杀
-    subprocess.run(['taskkill', '/F', '/T', '/PID', str(proc.pid)], capture_output=True)
+    subprocess.run(['taskkill', '/F', '/T', '/PID', str(proc.pid)], capture_output=True) if os.name == 'nt' else proc.terminate()
     time.sleep(1)
 
 print('\nJS错误:', errs if errs else '(无)')

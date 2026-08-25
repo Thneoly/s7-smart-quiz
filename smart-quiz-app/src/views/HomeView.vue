@@ -29,6 +29,18 @@ async function startFirst10() {
   await startWithQuestions('practice', '新手摸底 · 10题', pool.slice(0, 10))
 }
 
+// 考前冲刺：设置了考试日期且未过期时显示倒计时与每日章节配额
+const examPlan = ref<{ days: number; unread: number; perDay: number } | null>(null)
+async function loadExamPlan() {
+  const [ed, gr] = await Promise.all([api.getSetting('exam_date'), api.getSetting('guide_read')])
+  if (!ed) return
+  const days = Math.ceil((new Date(ed + 'T23:59:59').getTime() - Date.now()) / 86400000)
+  if (days < 0) return
+  const read = new Set(JSON.parse(gr ?? '[]') as number[]).size
+  const unread = Math.max(0, 22 - read)
+  examPlan.value = { days, unread, perDay: Math.max(1, Math.ceil(unread / Math.max(days, 1))) }
+}
+
 // 热力图：最近 15 周（列=周，行=周一~周日）
 const heat = ref<{ date: string; count: number; level: number }[][]>([])
 function buildHeat(days: DayCount[]) {
@@ -56,6 +68,7 @@ onMounted(async () => {
     buildHeat(a)
     // 无任何做题记录且未手动关闭时展示引导
     showOnboard.value = !onboardDismissed.value && d.answered === 0 && d.sessions_done === 0
+    loadExamPlan()
   } finally { loading.value = false }
 })
 </script>
@@ -84,6 +97,16 @@ onMounted(async () => {
         </div>
       </div>
       <p class="hint" style="margin:8px 0 0">备考路径：学习指南过章节 → 章节内随手练 → 真题模拟卷 → 错题清零。做任一练习后此卡自动收起。</p>
+    </div>
+
+    <div v-if="examPlan" class="card" style="border-color:var(--warn)">
+      <h3>⏰ 距考试 <b style="color:var(--warn)">{{ examPlan.days }}</b> 天
+        <span class="hint">未读 {{ examPlan.unread }} 章 → 每天约 {{ examPlan.perDay }} 章；冲刺期配合错题清零与真题模拟</span></h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" @click="store.go('study')">📖 去学习</button>
+        <button class="btn" @click="store.go('exam')">📝 做真题</button>
+        <button class="btn ghost" @click="store.go('wrong')">❌ 清错题</button>
+      </div>
     </div>
 
     <div class="statrow">

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { api, docsApi, type Overview, type DocHit, type QuestionRow } from '../api'
+import { api, docsApi, type Overview, type DocHit, type QuestionRow, type TopicAcc } from '../api'
 import { startWithQuestions } from '../session-start'
 import guide from '../study/guide.json'
 import refdata from '../study/refdata.json'
+import lecturesData from '../study/lectures.json'
 import { CHAPTER_LINKS } from '../study/chapter_links'
 
 interface Chapter {
@@ -13,11 +14,17 @@ interface Chapter {
 }
 interface Stage { stage: string; stage_goal: string; chapters: Chapter[] }
 interface RefItem { name: string; category: string; fields: [string, string][]; note: string; source: string }
+interface LectureSec { h: string; paras: string[]; ref: string }
+interface Lecture { no: number; title: string; intro: string; sections: LectureSec[]; exam_tips: string[] }
 
 const stages = (guide as any).stages as Stage[]
+const LECTURES: Record<number, Lecture> = Object.fromEntries(
+  (((lecturesData as any).lectures ?? []) as Lecture[]).map(l => [l.no, l]))
+const lecture = (c: Chapter) => LECTURES[c.no]
 const ov = ref<Overview | null>(null)
 const readSet = ref<Set<number>>(new Set())
 const openCh = ref<number | null>(null)
+const mastery = ref<TopicAcc[]>([])
 const priLabel: Record<string, [string, string]> = {
   core: ['核心', 'var(--bad)'], key: ['重点', 'var(--warn)'], ext: ['拓展', 'var(--sub)'],
 }
@@ -121,6 +128,7 @@ function optCls(c: Chapter, q: QuestionRow, opt: string): string {
 onMounted(async () => {
   loadProgress()
   ov.value = await api.overview()
+  api.dashboard().then(d => { mastery.value = d.by_topic.filter(t => t.a > 0) }).catch(() => {})
 })
 </script>
 
@@ -141,6 +149,17 @@ onMounted(async () => {
     </p>
   </div>
 
+  <!-- 知识点掌握度（作答后出现，薄弱优先） -->
+  <div v-if="mastery.length" class="card">
+    <h3>📊 知识点掌握度 <span class="hint">按正确率升序 · 点条目开练</span></h3>
+    <div v-for="m in [...mastery].sort((x, y) => (x.c / x.a) - (y.c / y.a))" :key="m.topic"
+      class="mrow" @click="practiceTopic(m.topic)">
+      <span class="mname">{{ m.topic }}</span>
+      <div class="mbar"><i :style="{ width: Math.round(m.c / m.a * 100) + '%' }"></i></div>
+      <span class="hint" style="width:86px;text-align:right">{{ m.c }}/{{ m.a }} · {{ Math.round(m.c / m.a * 100) }}%</span>
+    </div>
+  </div>
+
   <div v-for="s in stages" :key="s.stage" class="card">
     <h3>{{ s.stage }} <span class="hint">已完成 {{ stageProgress(s) }}</span></h3>
     <p class="hint" style="margin-bottom:10px">{{ s.stage_goal }}</p>
@@ -157,6 +176,21 @@ onMounted(async () => {
         <span class="hint">{{ openCh === c.no ? '收起 ▲' : '展开 ▼' }}</span>
       </div>
       <div v-if="openCh === c.no" class="chbody">
+        <!-- 📘 本章讲义（工作流从官方语料生成，段落转述+出处标注） -->
+        <div v-if="lecture(c)" class="deep lecture">
+          <div class="dhead">📘 本章讲义 <span class="hint">依据官方资料整理 · 段落附出处</span></div>
+          <p class="lintro">{{ lecture(c)!.intro }}</p>
+          <div v-for="(s, i) in lecture(c)!.sections" :key="i" class="lsec">
+            <b>{{ s.h }}</b>
+            <p v-for="(p, j) in s.paras" :key="j">{{ p }}</p>
+            <div class="src">出处：{{ s.ref }}</div>
+          </div>
+          <div v-if="lecture(c)!.exam_tips.length" class="ltips">
+            <b>🎯 考点提示</b>
+            <ul><li v-for="(t, i) in lecture(c)!.exam_tips" :key="i">{{ t }}</li></ul>
+          </div>
+        </div>
+
         <p class="goal">🎯 {{ c.goal }}</p>
         <ul class="pts">
           <li v-for="(p, i) in c.points" :key="i">{{ p }}</li>
@@ -215,6 +249,11 @@ onMounted(async () => {
 
 <style scoped>
 .chrow { border: 1px solid var(--line); border-radius: 11px; margin-bottom: 9px; background: var(--card); }
+.mrow { display: flex; align-items: center; gap: 10px; padding: 6px 4px; cursor: pointer; border-radius: 7px; font-size: .86rem; }
+.mrow:hover { background: var(--chip); }
+.mname { width: 150px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mbar { flex: 1; height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden; }
+.mbar i { display: block; height: 100%; background: var(--ok); }
 .chrow.read { opacity: .62; }
 .chhead { display: flex; align-items: center; gap: 9px; padding: 10px 13px; cursor: pointer; flex-wrap: wrap; font-size: .92rem; }
 .chrow.read .chhead b { text-decoration: line-through; }
@@ -225,6 +264,13 @@ onMounted(async () => {
 .lnks { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 6px; }
 .deep { border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; margin: 10px 0; background: var(--bg, transparent); }
 .dhead { font-size: .85rem; font-weight: 700; margin-bottom: 8px; color: var(--ink); }
+.lintro { font-size: .86rem; color: var(--ink); line-height: 1.8; margin: 0 0 10px; }
+.lsec { margin-bottom: 12px; }
+.lsec > b { font-size: .88rem; color: var(--ink); display: block; margin-bottom: 4px; }
+.lsec p { font-size: .85rem; color: var(--ink); line-height: 1.8; margin: 0 0 6px; }
+.lsec .src { font-size: .76rem; }
+.ltips { border-top: 1px dashed var(--line); padding-top: 8px; font-size: .84rem; }
+.ltips ul { margin: 6px 0 0 18px; line-height: 1.8; color: var(--ink); }
 .docHit { margin-bottom: 8px; }
 .docHit .snip { font-size: .82rem; color: var(--sub); line-height: 1.7; margin-top: 2px; }
 .refItem { margin-bottom: 9px; font-size: .85rem; color: var(--ink); }

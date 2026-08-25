@@ -83,8 +83,21 @@ export async function mock<T>(cmd: string, args?: Record<string, any>): Promise<
     case 'list_sessions': return [...mdb.sessions].reverse().filter(s => s.finished_at) as T
     case 'dashboard': {
       const due = Object.entries(mdb.wrong).filter(([, w]) => w.rep < 2 && w.count > 0).length
+      // by_topic 按主题聚合作答数/正确数（示例数据供掌握度视图展示）
+      const byTopic: Record<string, { a: number; c: number }> = {}
+      for (const s of mdb.sessions) {
+        if (!s.finished_at) continue
+        const recs = mdb.records[s.session_id - 1] ?? []
+        for (const r of recs) {
+          const q = MQUESTIONS.find(x => x.bank_id === r.bank_id && x.qid === r.qid)
+          const t = q?.topics[0]
+          if (!t || r.is_correct === null) continue
+          const e = byTopic[t] ?? (byTopic[t] = { a: 0, c: 0 })
+          e.a++; if (r.is_correct) e.c++
+        }
+      }
       return { answered: mdb.answered, correct: mdb.correct, sessions_done: mdb.sessions.filter(s => s.finished_at).length,
-        streak_days: mdb.sessions.length, due_count: due, wrong_active: due, by_topic: [], recent: await mock<SessionBrief[]>('list_sessions') } as T
+        streak_days: mdb.sessions.length, due_count: due, wrong_active: due, by_topic: Object.entries(byTopic).map(([topic, v]) => ({ topic, ...v })), recent: await mock<SessionBrief[]>('list_sessions') } as T
     }
     case 'wrong_list': {
       const out: WrongRow[] = []

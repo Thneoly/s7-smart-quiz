@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    name: Rust 测试（数据类测试无数据包自动跳过）
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: smart-quiz-app/src-tauri
+      - name: cargo test
+        working-directory: smart-quiz-app/src-tauri
+        run: cargo test
+
+  e2e:
+    name: 前端 E2E（mock 模式，chromium）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: smart-quiz-app/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 安装依赖
+        working-directory: smart-quiz-app
+        run: npm ci
+      - name: 安装 Playwright chromium
+        run: |
+          pip install playwright
+          python -m playwright install --with-deps chromium
+      - name: 运行 E2E
+        working-directory: smart-quiz-app
+        env:
+          SQ_BROWSER: chromium
+          SQ_APP_DIR: ${{ github.workspace }}/smart-quiz-app
+        run: |
+          for t in e2e_m1 e2e_study e2e_docs e2e_m3 e2e_m2 e2e_maint; do
+            echo "===== $t ====="
+            python tests/$t.py
+          done

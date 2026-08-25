@@ -10,6 +10,12 @@ const msg = ref('')
 const updating = ref(false)
 const logView = ref<LogView | null>(null)
 const version = ref('…')
+const examDate = ref('')
+async function applyExamDate(ev: Event) {
+  examDate.value = (ev.target as HTMLInputElement).value
+  await api.setSetting('exam_date', examDate.value)
+}
+onMounted(async () => { examDate.value = (await api.getSetting('exam_date')) ?? '' })
 
 async function checkUpdate() {
   if (!hasTauri) { msg.value = '更新检查仅应用内可用（当前为浏览器模式）'; return }
@@ -109,6 +115,16 @@ onMounted(async () => {
       <button class="btn" @click="applyFont(-1)">A⁻</button>
       <span>{{ fontSize }}px</span>
       <button class="btn" @click="applyFont(1)">A⁺</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>⏰ 备考计划</h3>
+    <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+      <span class="hint">考试日期</span>
+      <input type="date" :value="examDate" @change="applyExamDate"
+        style="padding:6px 10px;border:1.5px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)" />
+      <span class="hint">设置后首页显示倒计时与每日章节配额</span>
     </div>
   </div>
 

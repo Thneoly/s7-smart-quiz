@@ -1,16 +1,29 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { api, type WrongRow } from '../api'
+import { ref, computed, onMounted } from 'vue'
+import { api, type Overview, type WrongRow } from '../api'
 import { startWithQuestions } from '../session-start'
 
 const rows = ref<WrongRow[]>([])
+const ov = ref<Overview | null>(null)
 const loading = ref(true)
 
 async function load() { loading.value = true; try { rows.value = await api.wrongList() } finally { loading.value = false } }
-onMounted(load)
+onMounted(async () => { load(); ov.value = await api.overview() })
 async function practice() {
   if (!rows.value.length) return
   await startWithQuestions('wrong', `错题重练 ${rows.value.length} 题`, rows.value.map(w => w.question))
+}
+// 薄弱主题聚合：错题集中的主题，整主题再练（含未错过的同主题题）
+const topicGroups = computed(() => {
+  const g: Record<string, number> = {}
+  for (const w of rows.value) { const t = w.question.topics[0]; if (t) g[t] = (g[t] ?? 0) + 1 }
+  return Object.entries(g).sort((a, b) => b[1] - a[1])
+})
+async function practiceRelated(topic: string) {
+  const tid = ov.value?.topics.find(t => t.name === topic)?.topic_id
+  const qs = await api.questions({ topic_id: tid, status: 'active', limit: 500 })
+  if (!qs.length) { alert(`「${topic}」主题暂无可练题目`); return }
+  await startWithQuestions('practice', `相关巩固 · ${topic}（${qs.length}题）`, qs)
 }
 async function clear(bankId: string, qid: string) {
   if (!confirm('确定从错题本移除？')) return
@@ -23,6 +36,12 @@ async function clear(bankId: string, qid: string) {
   <h2 class="pt">错题本 <span class="hint">连续答对 2 次自动消灭（SM-2）</span></h2>
   <div class="card" v-if="rows.length">
     <button class="btn pri" @click="practice()">开始错题重练（{{ rows.length }} 题）</button>
+  </div>
+  <div class="card" v-if="topicGroups.length">
+    <h3>🎯 薄弱主题巩固 <span class="hint">错题集中区——整主题再练一遍，不止错题</span></h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button v-for="[t, n] in topicGroups" :key="t" class="chip" @click="practiceRelated(t)">{{ t }}（错{{ n }}）→ 练全部</button>
+    </div>
   </div>
   <div v-if="loading" class="empty">加载中…</div>
   <div v-else-if="!rows.length" class="card empty">🎉 没有活跃错题！</div>
