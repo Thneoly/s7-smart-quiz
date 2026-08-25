@@ -29,6 +29,10 @@ try:
         pg.wait_for_timeout(400)
         check('章节要点展开', pg.locator('.pts li').count() >= 6)
         check('配套练习chip', pg.locator('.lnks .chip').count() >= 1)
+        # M5①：本章讲义（lectures.json 静态数据，22章全量）
+        pg.wait_for_timeout(400)
+        check('本章讲义渲染', pg.locator('.lecture .lsec').count() >= 3 and '出处' in (pg.locator('.lecture').first.text_content() or ''))
+        check('考点提示渲染', pg.locator('.lecture .ltips li').count() >= 2)
         # M4：章节纵深三块（mock 检索有返回 / refdata 静态过滤 / mock 题库含硬件与选型题）
         pg.wait_for_timeout(700)
         check('手册原文选段', pg.locator('.docHit').count() >= 1)
