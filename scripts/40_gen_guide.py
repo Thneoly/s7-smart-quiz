@@ -32,5 +32,5 @@ for s in stages:
         if c['practice_topics']:
             lines += [f"**配套练习**：{'、'.join(c['practice_topics'])}", '']
         lines += [f"**手册出处**：{c['manual_ref']}", '']
-open('D:/PLC/s7-200/学习指南.md', 'w', encoding='utf-8').write('\n'.join(lines))
+open('D:/PLC/s7-200/docs/学习指南.md', 'w', encoding='utf-8').write('\n'.join(lines))
 print('学习指南.md 已生成')
