@@ -56,6 +56,17 @@ try:
         pg.locator('.lnks .chip').first.click()
         pg.wait_for_timeout(900)
         check('配套练习进入做题页', pg.locator('.qcard').count() == 1)
+
+        # M8 技能树
+        pg.click('.side button:has-text("技能树")')
+        pg.wait_for_timeout(700)
+        check('技能树22节点', pg.locator('.tnode').count() == 22)
+        check('快速路径高亮9章', pg.locator('.tnode.qs').count() == 9)
+        n_edges = pg.locator('svg.edges path').count()
+        check(f'依赖连线渲染（{n_edges}条）', n_edges > 20)
+        pg.locator('.tnode').first.click()
+        pg.wait_for_timeout(300)
+        check('节点详情与练本章入口', pg.locator('.detail').count() == 1 and pg.locator('button:has-text("练本章题")').count() == 1)
         (os.path.isdir(os.environ.get('SQ_SHOTS', 'D:/PLC/s7-200/题库资料/shots')) and pg.screenshot(path=os.path.join(os.environ.get('SQ_SHOTS', 'D:/PLC/s7-200/题库资料/shots'), '11_学习模式.png')))
         b.close()
 finally:

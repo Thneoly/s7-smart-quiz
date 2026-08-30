@@ -3,6 +3,7 @@ import { computed, ref, onMounted } from 'vue'
 import { store } from './store'
 import HomeView from './views/HomeView.vue'
 import StudyView from './views/StudyView.vue'
+import TechTreeView from './views/TechTreeView.vue'
 import PracticeView from './views/PracticeView.vue'
 import ExamView from './views/ExamView.vue'
 import ComposeView from './views/ComposeView.vue'
@@ -17,7 +18,7 @@ import BankAdminView from './views/BankAdminView.vue'
 import PrintPaperView from './views/PrintPaperView.vue'
 
 const views: Record<string, any> = {
-  home: HomeView, study: StudyView, practice: PracticeView, exam: ExamView, compose: ComposeView, session: SessionView,
+  home: HomeView, study: StudyView, tree: TechTreeView, practice: PracticeView, exam: ExamView, compose: ComposeView, session: SessionView,
   result: ResultView, wrong: WrongView, history: HistoryView, browse: BrowseView, docs: DocsView,
   bankadmin: BankAdminView, print: PrintPaperView, settings: SettingsView,
 }
@@ -25,6 +26,7 @@ const cur = computed(() => views[store.view] ?? HomeView)
 const navs = [
   { key: 'home', icon: '🏠', label: '首页' },
   { key: 'study', icon: '📖', label: '学习' },
+  { key: 'tree', icon: '🌳', label: '技能树' },
   { key: 'practice', icon: '📚', label: '练习' },
   { key: 'docs', icon: '📇', label: '资料' },
   { key: 'exam', icon: '📝', label: '考试' },
