@@ -13,12 +13,29 @@ const mGrade = (q: QuestionRow, picked: string): boolean | null => {
 class MockDB {
   sessions: SessionInfo[] = []
   sid = 0
-  records: AnswerRow[][] = []
+  records: Record<number, AnswerRow[]> = {}   // 按 session_id 键控（放弃中间会话不打乱索引）
   wrong: Record<string, { count: number; rep: number }> = {}
   favs: Record<string, true> = {}
   answered = 0; correct = 0
 }
 const mdb = new MockDB()
+// mock 持久化：模拟真实 SQLite 落盘——页面刷新后未完成会话/成绩/错题保留（e2e 可测"下次打开续做"）
+const MOCK_DB_KEY = 'sqmock_db'
+function mockPersist() {
+  try {
+    localStorage.setItem(MOCK_DB_KEY, JSON.stringify({
+      sessions: mdb.sessions, sid: mdb.sid, records: mdb.records,
+      wrong: mdb.wrong, favs: mdb.favs, answered: mdb.answered, correct: mdb.correct,
+    }))
+  } catch { /* 配额满等异常忽略，内存仍可用 */ }
+}
+function mockRestore() {
+  try {
+    const raw = localStorage.getItem(MOCK_DB_KEY)
+    if (raw) Object.assign(mdb, JSON.parse(raw))
+  } catch { /* 损坏则从空库开始 */ }
+}
+mockRestore()
 const MQUESTIONS: QuestionRow[] = []
 const MTOPICS: TopicStat[] = []
 export async function mock<T>(cmd: string, args?: Record<string, any>): Promise<T> {
@@ -44,12 +61,21 @@ export async function mock<T>(cmd: string, args?: Record<string, any>): Promise<
       const s: SessionInfo = { session_id: ++mdb.sid, mode: args!.mode, title: args!.title, time_limit_sec: args!.timeLimitSec ?? null,
         total_qty: args!.qids.length, started_at: new Date().toISOString(), finished_at: null, score: null, correct_qty: 0, scored_qty: 0,
         qid_list: args!.qids, draft: { picks: {}, marks: {} } }
-      mdb.sessions.push(s); mdb.records.push([])
+      mdb.sessions.push(s); mdb.records[s.session_id] = []
+      mockPersist()
       return s as T
     }
     case 'save_draft': {
-      const s = mdb.sessions.find(x => x.session_id === args!.sessionId)!
-      s.draft = args!.draft; return null as T
+      const s = mdb.sessions.find(x => x.session_id === args!.sessionId)
+      if (!s || s.finished_at) throw new Error('会话不存在或已完成')  // 与 Rust 0行→Err 语义对齐
+      s.draft = args!.draft; mockPersist(); return null as T
+    }
+    case 'discard_session': {
+      const i = mdb.sessions.findIndex(x => x.session_id === args!.sessionId && !x.finished_at)
+      if (i < 0) throw new Error('会话不存在或已完成，无法放弃')
+      mdb.sessions.splice(i, 1)
+      mockPersist()
+      return null as T
     }
     case 'finish_session': {
       const s = mdb.sessions.find(x => x.session_id === args!.sessionId)!
@@ -69,17 +95,19 @@ export async function mock<T>(cmd: string, args?: Record<string, any>): Promise<
         if (g === false) mdb.wrong[k] = { count: (mdb.wrong[k]?.count ?? 0) + 1, rep: 0 }
         if (g !== null && !['exam', 'recite'].includes(s.mode) && mdb.wrong[k]) mdb.wrong[k].rep = g ? mdb.wrong[k].rep + 1 : 0
       }
-      mdb.records[s.session_id - 1] = recs
+      mdb.records[s.session_id] = recs
       s.finished_at = new Date().toISOString()
       s.scored_qty = scored; s.correct_qty = correct
       s.score = scored ? Math.round((correct / scored) * 10000) / 100 : null
+      mockPersist()
       return s as T
     }
     case 'session_detail': {
-      const s = mdb.sessions.find(x => x.session_id === args!.sessionId)!
-      return { session: s, records: mdb.records[s.session_id - 1] } as T
+      const s = mdb.sessions.find(x => x.session_id === args!.sessionId)
+      if (!s) throw new Error('会话不存在')
+      return { session: s, records: mdb.records[s.session_id] ?? [] } as T
     }
-    case 'unfinished_sessions': return mdb.sessions.filter(s => !s.finished_at) as T
+    case 'unfinished_sessions': return [...mdb.sessions].reverse().filter(s => !s.finished_at) as T
     case 'list_sessions': return [...mdb.sessions].reverse().filter(s => s.finished_at) as T
     case 'dashboard': {
       const due = Object.entries(mdb.wrong).filter(([, w]) => w.rep < 2 && w.count > 0).length
@@ -87,7 +115,7 @@ export async function mock<T>(cmd: string, args?: Record<string, any>): Promise<
       const byTopic: Record<string, { a: number; c: number }> = {}
       for (const s of mdb.sessions) {
         if (!s.finished_at) continue
-        const recs = mdb.records[s.session_id - 1] ?? []
+        const recs = mdb.records[s.session_id] ?? []
         for (const r of recs) {
           const q = MQUESTIONS.find(x => x.bank_id === r.bank_id && x.qid === r.qid)
           const t = q?.topics[0]
@@ -110,11 +138,11 @@ export async function mock<T>(cmd: string, args?: Record<string, any>): Promise<
       return out as T
     }
     case 'due_review': return (await mock<WrongRow[]>('wrong_list')).map(w => w.question) as T
-    case 'wrong_clear': { delete mdb.wrong[`${args!.bankId}::${args!.qid}`]; return null as T }
+    case 'wrong_clear': { delete mdb.wrong[`${args!.bankId}::${args!.qid}`]; mockPersist(); return null as T }
     case 'fav_toggle': {
       const k = `${args!.bankId}::${args!.qid}`
-      if (mdb.favs[k]) { delete mdb.favs[k]; return false as T }
-      mdb.favs[k] = true; return true as T
+      if (mdb.favs[k]) { delete mdb.favs[k]; mockPersist(); return false as T }
+      mdb.favs[k] = true; mockPersist(); return true as T
     }
     case 'fav_list': return Object.keys(mdb.favs).map(k => { const [b, q] = k.split('::'); return MQUESTIONS.find(x => x.bank_id === b && x.qid === q)! }).filter(Boolean) as T
     case 'note_get': return null as T
@@ -142,12 +170,12 @@ export async function mock<T>(cmd: string, args?: Record<string, any>): Promise<
       return { sections: secs, total: qids.length, qids } as T
     }
     case 'activity_calendar': {
+      // 按会话遍历（records 已按 session_id 键控；放弃会话会 splice，按下标取会错位）
       const byDay: Record<string, number> = {}
-      for (let i = 1; i <= mdb.sid; i++) {
-        const s = mdb.sessions[i - 1]
-        if (!s?.finished_at) continue
+      for (const s of mdb.sessions) {
+        if (!s.finished_at) continue
         const d = s.finished_at.slice(0, 10)
-        byDay[d] = (byDay[d] ?? 0) + (mdb.records[i - 1]?.length ?? 0)
+        byDay[d] = (byDay[d] ?? 0) + (mdb.records[s.session_id]?.length ?? 0)
       }
       return Object.entries(byDay).map(([date, count]) => ({ date, count })).slice(0, args?.days ?? 120) as T
     }

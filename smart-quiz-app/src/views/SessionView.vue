@@ -82,26 +82,35 @@ async function saveNote() {
   noteOpen.value = false
 }
 let saveT: number | null = null
+function doSave() {
+  const c = ctx.value!
+  if (!c) return
+  c.draft.idx = c.idx
+  if (c.examMode && c.remainingSec !== null) c.draft.remaining_sec = c.remainingSec
+  c.draft.saved_at = Date.now()   // 墙钟锚点：恢复会话时据此续算考试剩余时间
+  return api.saveDraft(c.session.session_id, c.draft).catch(() => {})
+}
 function scheduleSave(immediate = false) {
   if (saveT) clearTimeout(saveT)
-  const doSave = async () => {
-    const c = ctx.value!
-    c.draft.idx = c.idx
-    if (c.examMode && c.remainingSec !== null) c.draft.remaining_sec = c.remainingSec
-    await api.saveDraft(c.session.session_id, c.draft)
-  }
+  // 500ms 防抖：兼顾写放大与"答完立即关窗"的丢失窗口（此前 1.5s 内刷新必丢，实测复现）
   if (immediate) doSave()
-  else saveT = window.setTimeout(doSave, 1500)
+  else saveT = window.setTimeout(() => { saveT = null; doSave() }, 500)
+}
+// 卸载/关窗前冲刷防抖窗口内的未决保存（否则丢失最后 1.5s 作答）
+function flushPending() {
+  if (!saveT) return
+  clearTimeout(saveT); saveT = null
+  scheduleSave(true)
 }
 function fmt(s: number) { return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}` }
 async function flushAndExit() {
   await doSaveNow()
   store.go(ctx.value!.examMode ? 'exam' : 'practice')
 }
-async function finish() {
+async function finish(auto = false) {
   const c = ctx.value!
   const unanswered = c.questions.filter(qq => !c.draft.picks[key(qq)]?.picked).length
-  if (c.examMode && unanswered && !confirm(`还有 ${unanswered} 题未作答，确定交卷？`)) return
+  if (c.examMode && unanswered && !auto && !confirm(`还有 ${unanswered} 题未作答，确定交卷？`)) return
   await doSaveNow()
   finishing.value = true
   try {
@@ -109,14 +118,16 @@ async function finish() {
     store.lastResultId = c.session.session_id
     store.sessionCtx = null
     store.go('result', { id: c.session.session_id })
+  } catch {
+    // 会话可能已被放弃（放弃/续做竞态）等：明确告知并退出做题页，避免卡死
+    alert('交卷失败：该练习可能已被删除，请重新开始')
+    store.sessionCtx = null
+    store.go(c.examMode ? 'exam' : 'practice')
   } finally { finishing.value = false }
 }
 async function doSaveNow() {
   if (saveT) { clearTimeout(saveT); saveT = null }
-  const c = ctx.value!
-  c.draft.idx = c.idx
-  if (c.examMode && c.remainingSec !== null) c.draft.remaining_sec = c.remainingSec
-  await api.saveDraft(c.session.session_id, c.draft)
+  await doSave()
 }
 onMounted(() => {
   const c = ctx.value!
@@ -130,12 +141,18 @@ onMounted(() => {
       c.remainingSec!--
       now.value = Date.now()
       if (c.remainingSec! % 30 === 0) scheduleSave(true)
-      if (c.remainingSec! <= 0) { clearInterval(tickTimer!); finish() }
+      if (c.remainingSec! <= 0) { clearInterval(tickTimer!); finish(true) }
     }, 1000)
   }
   saveTimer = window.setInterval(() => scheduleSave(true), 30000)
+  window.addEventListener('pagehide', flushPending)
 })
-onUnmounted(() => { if (saveTimer) clearInterval(saveTimer); if (tickTimer) clearInterval(tickTimer); if (saveT) clearTimeout(saveT) })
+onUnmounted(() => {
+  if (saveTimer) clearInterval(saveTimer)
+  if (tickTimer) clearInterval(tickTimer)
+  flushPending()
+  window.removeEventListener('pagehide', flushPending)
+})
 function onKey(e: KeyboardEvent) {
   const c = ctx.value; if (!c) return
   if ('12345'.includes(e.key)) { const i = +e.key - 1; if (q.value?.options[i]) pick(String.fromCharCode(65 + i)) }
@@ -146,8 +163,13 @@ window.addEventListener('keydown', onKey)
 onUnmounted(() => window.removeEventListener('keydown', onKey))
 const progressPct = computed(() => {
   const c = ctx.value!
-  const done = c.questions.filter(qq => c.draft.picks[key(qq)]?.picked).length
-  return Math.round((done / c.questions.length) * 100)
+  return Math.round((answeredCount.value / c.questions.length) * 100)
+})
+// 已答计数统一口径：只数当前题单中已作答的题（题库去重删题后旧 picks 键不计，避免 7/6）
+const answeredCount = computed(() => {
+  const c = ctx.value
+  if (!c) return 0
+  return c.questions.filter(qq => c.draft.picks[key(qq)]?.picked).length
 })
 </script>
 
@@ -158,7 +180,7 @@ const progressPct = computed(() => {
       <button class="btn ghost" @click="flushAndExit">← 退出</button>
       <div class="tt">
         <b>{{ ctx.session.title }}</b>
-        <span class="pos">{{ ctx.idx + 1 }} / {{ ctx.questions.length }} · 已答 {{ Object.keys(ctx.draft.picks).length }}</span>
+        <span class="pos">{{ ctx.idx + 1 }} / {{ ctx.questions.length }} · 已答 {{ answeredCount }}</span>
         <div class="pbar"><i :style="{ width: progressPct + '%' }"></i></div>
       </div>
       <div v-if="ctx.examMode" class="timer" :class="{ urgent: (ctx.remainingSec ?? 1) < 300 }">⏱ {{ fmt(ctx.remainingSec ?? 0) }}</div>
@@ -209,24 +231,24 @@ const progressPct = computed(() => {
         <button class="btn ghost" @click="markQ">{{ ctx.draft.marks[key(q)] ? '取消标记' : '🚩 标记' }}</button>
         <button v-if="isMulti && !locked && !ctx.examMode && !ctx.recite" class="btn pri" @click="submitMulti">提交答案</button>
         <button v-if="ctx.examMode || ctx.idx < ctx.questions.length - 1 || ctx.recite" class="btn pri" @click="nav(1)">下一题 →</button>
-        <button v-else class="btn pri" :disabled="finishing" @click="finish">{{ finishing ? '判分中…' : (ctx.examMode ? '交卷' : '完成练习') }}</button>
+        <button v-else class="btn pri" :disabled="finishing" @click="finish()">{{ finishing ? '判分中…' : (ctx.examMode ? '交卷' : '完成练习') }}</button>
       </div>
       <div v-if="ctx.examMode && ctx.idx === ctx.questions.length - 1" class="navrow" style="justify-content:center">
-        <button class="btn pri" :disabled="finishing" @click="finish">交卷并查看成绩</button>
+        <button class="btn pri" :disabled="finishing" @click="finish()">交卷并查看成绩</button>
       </div>
     </div>
 
     <!-- 答题卡 -->
     <div v-if="sheet" class="mask" @click.self="sheet = false">
       <div class="sheetbox">
-        <h3>答题卡 <span class="hint">已答 {{ Object.keys(ctx.draft.picks).length }}/{{ ctx.questions.length }}</span></h3>
+        <h3>答题卡 <span class="hint">已答 {{ answeredCount }}/{{ ctx.questions.length }}</span></h3>
         <div class="sgrid">
           <button v-for="(qq, i) in ctx.questions" :key="i" class="cell"
             :class="{ did: ctx.draft.picks[key(qq)]?.picked, mark: ctx.draft.marks[key(qq)], cur: i === ctx.idx }"
             @click="ctx.idx = i; locked = false; sheet = false; loadNote()">{{ i + 1 }}</button>
         </div>
         <div class="btnrow2">
-          <button class="btn pri" @click="finish">交卷</button>
+          <button class="btn pri" @click="finish()">交卷</button>
           <button class="btn" @click="sheet = false">继续答题</button>
         </div>
       </div>

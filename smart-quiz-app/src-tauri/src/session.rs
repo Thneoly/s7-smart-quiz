@@ -100,7 +100,10 @@ fn srs_apply(conn: &Connection, bank_id: &str, qid: &str, correct: bool) -> Resu
 #[derive(Deserialize, Serialize, Clone)]
 pub struct DraftPick { pub picked: String, pub t: Option<i64> }
 #[derive(Deserialize, Serialize, Clone, Default)]
-pub struct Draft { pub picks: HashMap<String, DraftPick>, pub marks: HashMap<String, bool>, pub remaining_sec: Option<i64>, pub idx: Option<i64> }
+pub struct Draft { pub picks: HashMap<String, DraftPick>, pub marks: HashMap<String, bool>, pub remaining_sec: Option<i64>, pub idx: Option<i64>,
+    /// 最近一次草稿保存时间戳(ms)：恢复会话时按墙钟续算考试剩余时间，防止"关窗暂停计时"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saved_at: Option<i64> }
 
 fn draft_key(bank_id: &str, qid: &str) -> String { format!("{bank_id}::{qid}") }
 
@@ -122,8 +125,24 @@ pub fn start_session(user: &Connection, mode: &str, title: &str, bank_id: &str,
 
 pub fn save_draft(user: &Connection, session_id: i64, draft: &Draft) -> Result<(), String> {
     let j = serde_json::to_string(draft).unwrap();
-    user.execute("UPDATE sessions SET draft=?1 WHERE session_id=?2 AND finished_at IS NULL",
+    let n = user.execute("UPDATE sessions SET draft=?1 WHERE session_id=?2 AND finished_at IS NULL",
         params![j, session_id]).map_err(|e| e.to_string())?;
+    // 0 行 = 会话不存在或已交卷/已放弃：报错而非静默，避免"续答进度悄悄全丢"
+    if n == 0 { return Err("会话不存在或已完成，草稿未保存".into()); }
+    Ok(())
+}
+
+/// 放弃未完成会话：同事务清理可能存在的孤儿作答记录（跨进程竞态防孤儿），完成后不可放弃
+pub fn discard_session(user: &Connection, session_id: i64) -> Result<(), String> {
+    let tx = user.unchecked_transaction().map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM answer_records WHERE session_id=?1", params![session_id]).map_err(|e| e.to_string())?;
+    let n = tx.execute("DELETE FROM sessions WHERE session_id=?1 AND finished_at IS NULL",
+        params![session_id]).map_err(|e| e.to_string())?;
+    if n == 0 {
+        return Err("会话不存在或已完成，无法放弃".into());
+    }
+    tx.commit().map_err(|e| e.to_string())?;
+    log::info!(target: "session", "放弃会话#{session_id}");
     Ok(())
 }
 
@@ -185,8 +204,10 @@ pub fn finish_session(user: &Connection, bankconn: &Connection, session_id: i64)
     let score = if scored > 0 { Some((correct as f64 / scored as f64) * 100.0) } else { None };
     let duration = (chrono::Utc::now() - chrono::DateTime::parse_from_rfc3339(&s.started_at).map_err(|e| e.to_string())?
         .with_timezone(&chrono::Utc)).num_milliseconds();
-    tx.execute("UPDATE sessions SET finished_at=?1,scored_qty=?2,correct_qty=?3,score=?4,duration_ms=?5 WHERE session_id=?6",
+    // finished_at IS NULL 守卫：与放弃/另一进程交卷竞态时 0 行生效，拒收本次事务防孤儿 records
+    let n = tx.execute("UPDATE sessions SET finished_at=?1,scored_qty=?2,correct_qty=?3,score=?4,duration_ms=?5 WHERE session_id=?6 AND finished_at IS NULL",
         params![now, scored, correct, score, duration, session_id]).map_err(|e| e.to_string())?;
+    if n == 0 { return Err(format!("会话#{session_id} 不存在或已完成，交卷未生效")); }
     tx.commit().map_err(|e| e.to_string())?;
     log::info!(target: "session", "会话#{session_id} 完成：得分{} 对{correct}/{scored}计分题",
         score.map(|s| format!("{s:.1}")).unwrap_or_else(|| "—".into()));
@@ -345,6 +366,7 @@ pub mod commands {
     use super::{start_session as start_session_impl, save_draft as save_draft_impl,
                 finish_session as finish_session_impl, session_detail as session_detail_impl,
                 unfinished_sessions as unfinished_sessions_impl, list_sessions as list_sessions_impl,
+                discard_session as discard_session_impl,
                 dashboard as dashboard_impl, due_review as due_review_impl,
                 wrong_list as wrong_list_impl, wrong_clear as wrong_clear_impl,
                 fav_toggle as fav_toggle_impl, fav_list as fav_list_impl,
@@ -405,6 +427,14 @@ pub mod commands {
         timed("list_sessions", false, || {
             let u = state.user.lock().map_err(|e| e.to_string())?;
             list_sessions_impl(&u, 30)
+        })
+    }
+
+    #[tauri::command]
+    pub async fn discard_session(state: tauri::State<'_, AppState>, session_id: i64) -> Result<(), String> {
+        timed("discard_session", false, || {
+            let u = state.user.lock().map_err(|e| e.to_string())?;
+            discard_session_impl(&u, session_id)
         })
     }
 
@@ -600,6 +630,43 @@ mod tests {
         let d2: Draft = serde_json::from_value(unfinished[0].draft.clone().unwrap()).unwrap();
         assert_eq!(d2.remaining_sec, Some(4300));
         assert!(d2.marks.contains_key(&draft_key(&qids[0].0, &qids[0].1)));
+        std::fs::remove_dir_all(&tmp).ok();
+    }
+
+    #[test]
+    fn discard_session_removes_unfinished_only() {
+        let Some((bankconn, user, tmp)) = env() else { return };
+        let qids = pick_qids(&bankconn, 2);
+        // 未完成会话：可放弃，放弃后从未完成列表消失
+        let s1 = start_session(&user, "practice", "章节练习", "smart-core", None, &qids, None).unwrap();
+        let s2 = start_session(&user, "exam", "A卷", "smart-core", Some(1), &qids, Some(5400)).unwrap();
+        assert_eq!(unfinished_sessions(&user).unwrap().len(), 2);
+        discard_session(&user, s1.session_id).unwrap();
+        let left = unfinished_sessions(&user).unwrap();
+        assert_eq!(left.len(), 1);
+        assert_eq!(left[0].session_id, s2.session_id);
+        // 已放弃的会话不能再放弃/交卷
+        assert!(discard_session(&user, s1.session_id).is_err());
+        // 已完成会话不可放弃（成绩保留）
+        finish_session(&user, &bankconn, s2.session_id).unwrap();
+        assert!(discard_session(&user, s2.session_id).is_err());
+        std::fs::remove_dir_all(&tmp).ok();
+    }
+
+    #[test]
+    fn draft_saved_at_roundtrip() {
+        let Some((bankconn, user, tmp)) = env() else { return };
+        let qids = pick_qids(&bankconn, 1);
+        let s = start_session(&user, "exam", "A卷", "smart-core", Some(1), &qids, Some(5400)).unwrap();
+        let mut d = Draft::default();
+        d.remaining_sec = Some(3000);
+        d.idx = Some(0);
+        d.saved_at = Some(1_788_000_000_000); // 墙钟续算锚点
+        save_draft(&user, s.session_id, &d).unwrap();
+        let d2: Draft = serde_json::from_value(
+            unfinished_sessions(&user).unwrap().remove(0).draft.unwrap()).unwrap();
+        assert_eq!(d2.saved_at, Some(1_788_000_000_000));
+        assert_eq!(d2.remaining_sec, Some(3000));
         std::fs::remove_dir_all(&tmp).ok();
     }
 }

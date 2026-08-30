@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { api, type Overview, type QuestionRow } from '../api'
-import { startWithQuestions } from '../session-start'
+import { api, MODE_NAME, type Overview, type QuestionRow, type SessionInfo } from '../api'
+import { startWithQuestions, resumeSession } from '../session-start'
 
 const ov = ref<Overview | null>(null)
 const busy = ref('')
 const randN = ref(30)
+// 续做：进入练习页即提示未完成会话（非阻塞——新练习照常开新会话，从第 1 题开始）
+const ongoing = ref<SessionInfo[]>([])
+const ansCount = (s: SessionInfo) => Object.keys(s.draft?.picks ?? {}).length
+async function discardOngoing(s: SessionInfo) {
+  if (!confirm(`放弃「${s.title}」？已答的 ${ansCount(s)} 题进度将被删除`)) return
+  try { await api.discardSession(s.session_id) } catch { alert('删除失败，请重试'); return }
+  ongoing.value = ongoing.value.filter(x => x.session_id !== s.session_id)
+}
 
 async function topicPractice(name?: string) {
   busy.value = name ?? '全部'
@@ -55,11 +63,29 @@ async function favPractice() {
 }
 function shuffleStable(qs: QuestionRow[]) { return qs } // 章节练习保持题序
 
-onMounted(async () => { ov.value = await api.overview() })
+onMounted(async () => {
+  const [o, u] = await Promise.all([api.overview(), api.unfinished().catch(() => [])])
+  ov.value = o
+  ongoing.value = u
+})
 </script>
 
 <template>
   <h2 class="pt">练习中心</h2>
+
+  <!-- 续做横幅：上次没做完？接着做，不用从头开始 -->
+  <div v-if="ongoing.length" class="card ongoing">
+    <h3>⏸ 继续上次的练习 <span class="hint">进度已自动保存 · 也可忽略，直接开始新练习</span></h3>
+    <div v-for="s in ongoing" :key="s.session_id" class="orow">
+      <span class="tag">{{ MODE_NAME[s.mode] ?? s.mode }}</span>
+      <b class="otitle">{{ s.title }}</b>
+      <span class="hint">已答 {{ ansCount(s) }}/{{ s.total_qty }}</span>
+      <span style="flex:1"></span>
+      <button class="btn pri" @click="resumeSession(s)">▶ 继续</button>
+      <button class="btn ghost" @click="discardOngoing(s)">放弃</button>
+    </div>
+  </div>
+
   <div class="card">
     <h3>📖 章节练习 <span class="hint">即时判分 · 答错自动进错题本与复习计划</span></h3>
     <div class="chips" style="display:flex;flex-wrap:wrap;gap:8px">
@@ -89,3 +115,10 @@ onMounted(async () => { ov.value = await api.overview() })
   </div>
   <div v-if="busy" class="empty">正在准备题目…</div>
 </template>
+
+<style scoped>
+.ongoing { border-color: var(--warn); }
+.orow { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px dashed var(--line); flex-wrap: wrap; }
+.orow:last-child { border-bottom: none; padding-bottom: 2px; }
+.otitle { font-size: .9rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 340px; }
+</style>

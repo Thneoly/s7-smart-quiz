@@ -34,7 +34,7 @@ export interface SessionInfo {
   qid_list: QID[]; draft: DraftJson | null
 }
 export interface DraftPick { picked: string; t?: number }
-export interface DraftJson { picks: Record<string, DraftPick>; marks: Record<string, boolean>; remaining_sec?: number; idx?: number }
+export interface DraftJson { picks: Record<string, DraftPick>; marks: Record<string, boolean>; remaining_sec?: number; idx?: number; saved_at?: number }
 export interface AnswerRow { bank_id: string; qid: string; picked: string | null; is_correct: boolean | null; time_cost_ms: number | null; question: QuestionRow | null }
 export interface SessionDetail { session: SessionInfo; records: AnswerRow[] }
 export interface SessionBrief { session_id: number; mode: string; title: string; score: number | null; correct_qty: number; scored_qty: number; finished_at: string | null; duration_ms: number | null }
@@ -42,6 +42,9 @@ export interface TopicAcc { topic: string; a: number; c: number }
 export interface Dashboard { answered: number; correct: number; sessions_done: number; streak_days: number; due_count: number; wrong_active: number; by_topic: TopicAcc[]; recent: SessionBrief[] }
 export interface WrongRow { bank_id: string; qid: string; wrong_count: number; last_wrong_at: string; repetitions: number; due_date: string | null; question: QuestionRow }
 export interface SpikeResult { rows: number; seg_build_ms: number; like_avg_ms: number; fts_avg_ms: number; fts_hits: number; like_hits: number }
+
+/** 会话模式的中文显示名（首页/练习/记录页共用） */
+export const MODE_NAME: Record<string, string> = { practice: '章节练习', random: '随机练习', recite: '背诵', review: '间隔复习', wrong: '错题重练', fav: '收藏练习', exam: '考试' }
 
 // ---------- 命令 ----------
 export const api = {
@@ -59,6 +62,7 @@ export const api = {
   finishSession: (sessionId: number) => invoke<SessionInfo>('finish_session', { sessionId }),
   sessionDetail: (sessionId: number) => invoke<SessionDetail>('session_detail', { sessionId }),
   unfinished: () => invoke<SessionInfo[]>('unfinished_sessions'),
+  discardSession: (sessionId: number) => invoke<null>('discard_session', { sessionId }),
   sessions: () => invoke<SessionBrief[]>('list_sessions'),
 
   dashboard: () => invoke<Dashboard>('dashboard'),

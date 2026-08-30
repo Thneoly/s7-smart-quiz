@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { api, type Dashboard, type SessionInfo, type DayCount } from '../api'
+import { api, MODE_NAME, type Dashboard, type SessionInfo, type DayCount } from '../api'
 import { store } from '../store'
 import { resumeSession, startWithQuestions } from '../session-start'
 
@@ -9,6 +9,19 @@ const unfinished = ref<SessionInfo[]>([])
 const activity = ref<DayCount[]>([])
 const loading = ref(true)
 const acc = (d: Dashboard) => d.answered ? Math.round((d.correct / d.answered) * 100) : 0
+const ansCount = (s: SessionInfo) => Object.keys(s.draft?.picks ?? {}).length
+function relTime(iso: string) {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (m < 1) return '刚刚'
+  if (m < 60) return `${m} 分钟前`
+  if (m < 1440) return `${Math.floor(m / 60)} 小时前`
+  return `${Math.floor(m / 1440)} 天前`
+}
+async function discardOngoing(s: SessionInfo) {
+  if (!confirm(`放弃「${s.title}」？已答的 ${ansCount(s)} 题进度将被删除`)) return
+  try { await api.discardSession(s.session_id) } catch { alert('删除失败，请重试'); return }
+  unfinished.value = unfinished.value.filter(x => x.session_id !== s.session_id)
+}
 
 // 新手三步引导：从未做题时显示，可手动关闭
 const onboardDismissed = ref(localStorage.getItem('sq_onboard_hide') === '1')
@@ -119,10 +132,16 @@ onMounted(async () => {
     </div>
 
     <div v-if="unfinished.length" class="card">
-      <h3>⏸ 进行中的会话（断点续考）</h3>
-      <div v-for="s in unfinished" :key="s.session_id" class="rowitem" style="cursor:pointer" @click="resumeSession(s)">
+      <h3>⏸ 进行中的练习 <span class="hint">进度已自动保存，随时接着做</span></h3>
+      <div v-for="s in unfinished" :key="s.session_id" class="rowitem ongoing-row" style="cursor:pointer" @click="resumeSession(s)">
         <div class="qq">{{ s.title }}</div>
-        <div class="meta"><span class="tag">{{ s.mode }}</span>已答 {{ Object.keys((s.draft as any)?.picks ?? {}).length }}/{{ s.total_qty }} 题 · 点击继续</div>
+        <div class="meta">
+          <span class="tag">{{ MODE_NAME[s.mode] ?? s.mode }}</span>
+          <span>已答 {{ ansCount(s) }}/{{ s.total_qty }} 题</span>
+          <span>做到第 {{ (s.draft?.idx ?? 0) + 1 }} 题</span>
+          <span class="src">{{ relTime(s.started_at) }}</span>
+          <button class="btn ghost" style="padding:2px 10px;font-size:.74rem;margin-left:auto" @click.stop="discardOngoing(s)">放弃</button>
+        </div>
       </div>
     </div>
 

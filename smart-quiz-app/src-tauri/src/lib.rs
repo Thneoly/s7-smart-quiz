@@ -77,6 +77,7 @@ pub fn run() {
             bank::commands::import_bank_file,
             session::commands::start_session, session::commands::save_draft, session::commands::finish_session,
             session::commands::session_detail, session::commands::unfinished_sessions, session::commands::list_sessions,
+            session::commands::discard_session,
             session::commands::dashboard, session::commands::due_review,
             session::commands::wrong_list, session::commands::wrong_clear,
             session::commands::fav_toggle, session::commands::fav_list,
