@@ -1,89 +1,316 @@
 {
-  "meta": {
-    "total_h": 58,
-    "quickstart_h": 19.5,
-    "next_step": [11, 12, 13],
-    "note": "三视角（零基础入门/认证备考/工程实践）独立设计后综合裁决；est_h 为最小达标口径"
-  },
-  "layers": [
-    { "name": "① 认知起点（零基础直达）", "nodes": [
-      { "no": 1, "prereqs": [], "core": true, "quickstart": true, "est_h": 3,
-        "beginner_note": "认识 CPU、模块与接线：知道买什么、怎么接线上电，一切的地基。",
-        "min_master": "给出点数与负载需求，能选对 SR/ST 型号，并说清继电器与晶体管输出的取舍" },
-      { "no": 2, "prereqs": [], "core": true, "quickstart": true, "est_h": 1.5,
-        "beginner_note": "PLC 的内存地图：I/Q/M/V 是什么、地址怎么读，看懂程序的前提。",
-        "min_master": "任给 I0.1/VW30/MD4 类地址，能立刻说出存储区、数据长度与寻址方式" }
-    ]},
-    { "name": "② 上手三件套（点表·软件·指令）", "nodes": [
-      { "no": 3, "prereqs": [1, 2], "core": false, "quickstart": true, "est_h": 0.5,
-        "beginner_note": "实操设备的点表说明书：每个按钮、灯、电机接在哪个 IO 点上。",
-        "min_master": "能脱口说出 SB1/SB2、三色灯、编码器、加热棒对应的 IO 地址" },
-      { "no": 4, "prereqs": [1], "core": true, "quickstart": true, "est_h": 1.5,
-        "beginner_note": "装上 Micro/WIN SMART，联机下载第一段程序，让 PLC 听你指挥。",
-        "min_master": "独立走通系统块组态→搜 IP 联机→下载→状态图表监控全流程" },
-      { "no": 5, "prereqs": [2], "core": true, "quickstart": true, "est_h": 5,
-        "beginner_note": "约八成程序靠这七类指令：触点、定时、计数、传送、比较等。",
-        "min_master": "给一条控制要求（如延时 5s 启动），30 秒内选定指令并写出梯形图" }
-    ]},
-    { "name": "③ 编程能力成形（实战·调试·结构化·进阶·脉冲）", "nodes": [
-      { "no": 6, "prereqs": [4, 5], "core": true, "quickstart": true, "est_h": 2.5,
-        "beginner_note": "五个经典小项目实战：红绿灯、送料车……把指令变成真本事。",
-        "min_master": "独立完成皮带机/自动门/红绿灯等任意 3 个项目并通过仿真验证" },
-      { "no": 7, "prereqs": [4, 5], "core": true, "quickstart": true, "est_h": 1.5,
-        "beginner_note": "程序不对怎么办：强制、监控、交叉引用，工程师的看家本领。",
-        "min_master": "能用状态图表监控并强制 IO，用交叉引用定位一处地址冲突" },
-      { "no": 8, "prereqs": [5], "core": true, "quickstart": true, "est_h": 1.5,
-        "beginner_note": "把功能打包复用：程序结构化第一步，中大型程序必修课。",
-        "min_master": "能独立编写一个带 IN/OUT 参数的子程序并在两处正确调用" },
-      { "no": 9, "prereqs": [5], "core": true, "quickstart": true, "est_h": 2.5,
-        "beginner_note": "时钟、顺控、中断：让程序会按时间、按步骤、按事件动作。",
-        "min_master": "能每秒读一次 RTC、用 SCR 写顺控段、组态一个 I/O 中断并触发" },
-      { "no": 10, "prereqs": [1, 4, 5], "core": false, "quickstart": false, "est_h": 1.5,
-        "beginner_note": "输出可调方波：风扇调速、灯调光的入门高速输出功能。",
-        "min_master": "能用向导生成 PWM，运行中修改周期/脉宽" }
-    ]},
-    { "name": "④ 功能进阶（HSC·PID·Modbus·库·高级指令）", "nodes": [
-      { "no": 11, "prereqs": [1, 5, 9], "core": true, "quickstart": false, "est_h": 4.5,
-        "beginner_note": "数比扫描更快的脉冲：接编码器测位置测速度的必备功能。",
-        "min_master": "能按编码器参数选计数模式，用向导组态 HSC 并读到正确计数值" },
-      { "no": 12, "prereqs": [1, 5, 9], "core": true, "quickstart": false, "est_h": 4,
-        "beginner_note": "恒温恒液位的闭环控制：比例积分微分自动纠偏，工控经典。",
-        "min_master": "能完成 PID 向导组态与 PV 标定，调用 PIDx_CTRL 并跑通一次自整定" },
-      { "no": 13, "prereqs": [1, 2, 5, 8], "core": true, "quickstart": false, "est_h": 4.5,
-        "beginner_note": "和变频器、仪表对话的通用协议：工控界最常用的通信方式。",
-        "min_master": "能编写从站 INIT+应答程序，或主站 MBUS_MSG 读回一组保持寄存器" },
-      { "no": 16, "prereqs": [4, 8], "core": false, "quickstart": false, "est_h": 1.5,
-        "beginner_note": "数据记录与自制库：把数据存成日志、把程序封成零件复用。",
-        "min_master": "能组态数据日志按信号触发记录，并把一个子程序封装成库" },
-      { "no": 17, "prereqs": [5, 8], "core": false, "quickstart": false, "est_h": 4.5,
-        "beginner_note": "指针、循环、移位、查表：批量数据处理与通信解析的利器。",
-        "min_master": "能用 FOR 循环+指针对一组 VW 求和，并用 TBL_FIND 查到目标值" }
-    ]},
-    { "name": "⑤ 通信与集成深化（报文·运动·S7·自由口）", "nodes": [
-      { "no": 14, "prereqs": [2, 13], "core": false, "quickstart": false, "est_h": 2,
-        "beginner_note": "逐字节拆通信报文：通信扯皮时用报文找出真凶的排障技能。",
-        "min_master": "给一帧 03 功能码报文，能标出每字节含义并核对 CRC" },
-      { "no": 15, "prereqs": [1, 5, 10, 11], "core": true, "quickstart": false, "est_h": 6.5,
-        "beginner_note": "步进电机精确走位：脉冲、方向、回零、多段曲线完整方案。",
-        "min_master": "能完成运动向导组态，实现手动点动+GOTO 定位+回参考点" },
-      { "no": 18, "prereqs": [4, 13], "core": false, "quickstart": false, "est_h": 1.2,
-        "beginner_note": "PLC 之间直接换数据：PUT/GET 向导，多机协作的最简方案。",
-        "min_master": "能用向导组态一条 PUT/GET，并说明状态字第 6 位的含义" },
-      { "no": 20, "prereqs": [9, 13], "core": false, "quickstart": false, "est_h": 3,
-        "beginner_note": "非标串口设备自己谈：自定义报文收发，对接打印机/仪表。",
-        "min_master": "能组态 SMB30/SMB87 并编写 XMT 发送与按起止字符 RCV 接收" }
-    ]},
-    { "name": "⑥ 以太网专题（PROFINET·UDP·TCP）", "nodes": [
-      { "no": 19, "prereqs": [4, 18], "core": false, "quickstart": false, "est_h": 2,
-        "beginner_note": "实时工业以太网：挂远程 IO、当智能设备，现代产线标配。",
-        "min_master": "能完成智能设备侧导出 GSD 与控制器侧添加设备的双侧组态" },
-      { "no": 21, "prereqs": [4, 13], "core": false, "quickstart": false, "est_h": 1.5,
-        "beginner_note": "对讲机式网络通信：开销最小的 OUC 库入门，广播发数据。",
-        "min_master": "能用 UDP_CONNECT/SEND/RECV 与网络调试助手完成一次收发" },
-      { "no": 22, "prereqs": [4, 13], "core": false, "quickstart": false, "est_h": 2,
-        "beginner_note": "电话式可靠连接：与上位机、第三方设备稳定交换数据。",
-        "min_master": "能分别作客户端与服务器完成连接+收发，并处理断线重连" }
-    ]}
+ "meta": {
+  "total_h": 58,
+  "quickstart_h": 19.5,
+  "next_step": [
+   11,
+   12,
+   13
   ],
-  "quickstart_path": [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  "note": "三视角（零基础入门/认证备考/工程实践）独立设计后综合裁决；est_h 为最小达标口径"
+ },
+ "layers": [
+  {
+   "name": "① 认知起点",
+   "nodes": [
+    {
+     "no": 1,
+     "prereqs": [],
+     "core": true,
+     "quickstart": true,
+     "est_h": 3,
+     "beginner_note": "认识 CPU、模块与接线：知道买什么、怎么接线上电，一切的地基。",
+     "min_master": "给出点数与负载需求，能选对 SR/ST 型号，并说清继电器与晶体管输出的取舍"
+    },
+    {
+     "no": 2,
+     "prereqs": [],
+     "core": true,
+     "quickstart": true,
+     "est_h": 1.5,
+     "beginner_note": "PLC 的内存地图：I/Q/M/V 是什么、地址怎么读，看懂程序的前提。",
+     "min_master": "任给 I0.1/VW30/MD4 类地址，能立刻说出存储区、数据长度与寻址方式"
+    }
+   ]
+  },
+  {
+   "name": "② 上手三件套",
+   "nodes": [
+    {
+     "no": 3,
+     "prereqs": [
+      1,
+      2
+     ],
+     "core": false,
+     "quickstart": true,
+     "est_h": 0.5,
+     "beginner_note": "实操设备的点表说明书：每个按钮、灯、电机接在哪个 IO 点上。",
+     "min_master": "能脱口说出 SB1/SB2、三色灯、编码器、加热棒对应的 IO 地址"
+    },
+    {
+     "no": 4,
+     "prereqs": [
+      1
+     ],
+     "core": true,
+     "quickstart": true,
+     "est_h": 1.5,
+     "beginner_note": "装上 Micro/WIN SMART，联机下载第一段程序，让 PLC 听你指挥。",
+     "min_master": "独立走通系统块组态→搜 IP 联机→下载→状态图表监控全流程"
+    },
+    {
+     "no": 5,
+     "prereqs": [
+      2
+     ],
+     "core": true,
+     "quickstart": true,
+     "est_h": 5,
+     "beginner_note": "约八成程序靠这七类指令：触点、定时、计数、传送、比较等。",
+     "min_master": "给一条控制要求（如延时 5s 启动），30 秒内选定指令并写出梯形图"
+    }
+   ]
+  },
+  {
+   "name": "③ 编程能力成形",
+   "nodes": [
+    {
+     "no": 6,
+     "prereqs": [
+      4,
+      5
+     ],
+     "core": true,
+     "quickstart": true,
+     "est_h": 2.5,
+     "beginner_note": "五个经典小项目实战：红绿灯、送料车……把指令变成真本事。",
+     "min_master": "独立完成皮带机/自动门/红绿灯等任意 3 个项目并通过仿真验证"
+    },
+    {
+     "no": 7,
+     "prereqs": [
+      4,
+      5
+     ],
+     "core": true,
+     "quickstart": true,
+     "est_h": 1.5,
+     "beginner_note": "程序不对怎么办：强制、监控、交叉引用，工程师的看家本领。",
+     "min_master": "能用状态图表监控并强制 IO，用交叉引用定位一处地址冲突"
+    },
+    {
+     "no": 8,
+     "prereqs": [
+      5
+     ],
+     "core": true,
+     "quickstart": true,
+     "est_h": 1.5,
+     "beginner_note": "把功能打包复用：程序结构化第一步，中大型程序必修课。",
+     "min_master": "能独立编写一个带 IN/OUT 参数的子程序并在两处正确调用"
+    },
+    {
+     "no": 9,
+     "prereqs": [
+      5
+     ],
+     "core": true,
+     "quickstart": true,
+     "est_h": 2.5,
+     "beginner_note": "时钟、顺控、中断：让程序会按时间、按步骤、按事件动作。",
+     "min_master": "能每秒读一次 RTC、用 SCR 写顺控段、组态一个 I/O 中断并触发"
+    },
+    {
+     "no": 10,
+     "prereqs": [
+      1,
+      4,
+      5
+     ],
+     "core": false,
+     "quickstart": false,
+     "est_h": 1.5,
+     "beginner_note": "输出可调方波：风扇调速、灯调光的入门高速输出功能。",
+     "min_master": "能用向导生成 PWM，运行中修改周期/脉宽"
+    }
+   ]
+  },
+  {
+   "name": "④ 功能进阶",
+   "nodes": [
+    {
+     "no": 11,
+     "prereqs": [
+      1,
+      5,
+      9
+     ],
+     "core": true,
+     "quickstart": false,
+     "est_h": 4.5,
+     "beginner_note": "数比扫描更快的脉冲：接编码器测位置测速度的必备功能。",
+     "min_master": "能按编码器参数选计数模式，用向导组态 HSC 并读到正确计数值"
+    },
+    {
+     "no": 12,
+     "prereqs": [
+      1,
+      5,
+      9
+     ],
+     "core": true,
+     "quickstart": false,
+     "est_h": 4,
+     "beginner_note": "恒温恒液位的闭环控制：比例积分微分自动纠偏，工控经典。",
+     "min_master": "能完成 PID 向导组态与 PV 标定，调用 PIDx_CTRL 并跑通一次自整定"
+    },
+    {
+     "no": 13,
+     "prereqs": [
+      1,
+      2,
+      5,
+      8
+     ],
+     "core": true,
+     "quickstart": false,
+     "est_h": 4.5,
+     "beginner_note": "和变频器、仪表对话的通用协议：工控界最常用的通信方式。",
+     "min_master": "能编写从站 INIT+应答程序，或主站 MBUS_MSG 读回一组保持寄存器"
+    },
+    {
+     "no": 16,
+     "prereqs": [
+      4,
+      8
+     ],
+     "core": false,
+     "quickstart": false,
+     "est_h": 1.5,
+     "beginner_note": "数据记录与自制库：把数据存成日志、把程序封成零件复用。",
+     "min_master": "能组态数据日志按信号触发记录，并把一个子程序封装成库"
+    },
+    {
+     "no": 17,
+     "prereqs": [
+      5,
+      8
+     ],
+     "core": false,
+     "quickstart": false,
+     "est_h": 4.5,
+     "beginner_note": "指针、循环、移位、查表：批量数据处理与通信解析的利器。",
+     "min_master": "能用 FOR 循环+指针对一组 VW 求和，并用 TBL_FIND 查到目标值"
+    }
+   ]
+  },
+  {
+   "name": "⑤ 通信与集成",
+   "nodes": [
+    {
+     "no": 14,
+     "prereqs": [
+      2,
+      13
+     ],
+     "core": false,
+     "quickstart": false,
+     "est_h": 2,
+     "beginner_note": "逐字节拆通信报文：通信扯皮时用报文找出真凶的排障技能。",
+     "min_master": "给一帧 03 功能码报文，能标出每字节含义并核对 CRC"
+    },
+    {
+     "no": 15,
+     "prereqs": [
+      1,
+      5,
+      10,
+      11
+     ],
+     "core": true,
+     "quickstart": false,
+     "est_h": 6.5,
+     "beginner_note": "步进电机精确走位：脉冲、方向、回零、多段曲线完整方案。",
+     "min_master": "能完成运动向导组态，实现手动点动+GOTO 定位+回参考点"
+    },
+    {
+     "no": 18,
+     "prereqs": [
+      4,
+      13
+     ],
+     "core": false,
+     "quickstart": false,
+     "est_h": 1.2,
+     "beginner_note": "PLC 之间直接换数据：PUT/GET 向导，多机协作的最简方案。",
+     "min_master": "能用向导组态一条 PUT/GET，并说明状态字第 6 位的含义"
+    },
+    {
+     "no": 20,
+     "prereqs": [
+      9,
+      13
+     ],
+     "core": false,
+     "quickstart": false,
+     "est_h": 3,
+     "beginner_note": "非标串口设备自己谈：自定义报文收发，对接打印机/仪表。",
+     "min_master": "能组态 SMB30/SMB87 并编写 XMT 发送与按起止字符 RCV 接收"
+    }
+   ]
+  },
+  {
+   "name": "⑥ 以太网专题",
+   "nodes": [
+    {
+     "no": 19,
+     "prereqs": [
+      4,
+      18
+     ],
+     "core": false,
+     "quickstart": false,
+     "est_h": 2,
+     "beginner_note": "实时工业以太网：挂远程 IO、当智能设备，现代产线标配。",
+     "min_master": "能完成智能设备侧导出 GSD 与控制器侧添加设备的双侧组态"
+    },
+    {
+     "no": 21,
+     "prereqs": [
+      4,
+      13
+     ],
+     "core": false,
+     "quickstart": false,
+     "est_h": 1.5,
+     "beginner_note": "对讲机式网络通信：开销最小的 OUC 库入门，广播发数据。",
+     "min_master": "能用 UDP_CONNECT/SEND/RECV 与网络调试助手完成一次收发"
+    },
+    {
+     "no": 22,
+     "prereqs": [
+      4,
+      13
+     ],
+     "core": false,
+     "quickstart": false,
+     "est_h": 2,
+     "beginner_note": "电话式可靠连接：与上位机、第三方设备稳定交换数据。",
+     "min_master": "能分别作客户端与服务器完成连接+收发，并处理断线重连"
+    }
+   ]
+  }
+ ],
+ "quickstart_path": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9
+ ]
 }

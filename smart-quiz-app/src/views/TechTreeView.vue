@@ -38,14 +38,15 @@ const nodeStat = (n: TNode): { state: 'todo' | 'doing' | 'done'; acc: number; a:
 const stateColor: Record<string, string> = { todo: 'var(--chip)', doing: 'var(--warn)', done: 'var(--ok)' }
 
 // ---------- 布局：层=列，节点=行卡；SVG 贝塞尔画前置边 ----------
-const COL_W = 210, ROW_H = 96, GAP_X = 62, NODE_W = 190, NODE_H = 74
+// TOP 为层标题预留带（标题不再压在首行节点上——曾因此重叠）
+const COL_W = 210, ROW_H = 96, GAP_X = 62, NODE_W = 190, NODE_H = 74, TOP = 34
 const pos = (n: TNode) => {
   const li = layers.findIndex(l => l.nodes.some(x => x.no === n.no))
   const ni = layers[li].nodes.findIndex(x => x.no === n.no)
-  return { x: li * (COL_W + GAP_X), y: ni * ROW_H, li }
+  return { x: li * (COL_W + GAP_X), y: TOP + ni * ROW_H, li }
 }
 const width = computed(() => layers.length * (COL_W + GAP_X))
-const height = computed(() => Math.max(...layers.map(l => l.nodes.length)) * ROW_H + 10)
+const height = computed(() => TOP + Math.max(...layers.map(l => l.nodes.length)) * ROW_H + 6)
 const edges = computed(() => {
   const out: { d: string; qs: boolean; weak: boolean }[] = []
   for (const l of layers) for (const n of l.nodes) {
@@ -114,10 +115,11 @@ onMounted(async () => {
   <div class="card scrollx">
     <div class="treebox" :style="{ width: width + 'px', height: height + 'px' }">
       <svg class="edges" :width="width" :height="height">
-        <path v-for="(e, i) in edges" :key="i" :d="e.d" fill="none" stroke="var(--line)" stroke-width="1.4" :opacity="e.weak ? 0.9 : 0.45" />
-        <path v-for="(e, i) in qsEdges" :key="'q' + i" :d="e.d" fill="none" stroke="var(--warn)" stroke-width="3" opacity="0.85" />
+        <path v-for="(e, i) in edges" :key="i" :d="e.d" fill="none" stroke="var(--line)" stroke-width="1.4" :opacity="e.weak ? 0.8 : 0.35" />
+        <path v-for="(e, i) in qsEdges" :key="'q' + i" :d="e.d" fill="none" stroke="var(--warn)" stroke-width="3" opacity="0.8" />
       </svg>
       <div v-for="l in layers" :key="l.name" class="layerlbl" :style="{ left: pos(l.nodes[0]).x + 'px' }">{{ l.name }}</div>
+      <div class="layerline" :style="{ width: width + 'px' }"></div>
       <div v-for="n in nodes" :key="n.no" class="tnode" :class="{ sel: sel === n.no, qs: quick.has(n.no) }"
         :style="{ left: pos(n).x + 'px', top: pos(n).y + 'px', width: NODE_W + 'px', height: NODE_H + 'px' }"
         @click="sel = sel === n.no ? null : n.no">
@@ -158,7 +160,9 @@ onMounted(async () => {
 .scrollx { overflow-x: auto; padding: 14px; }
 .treebox { position: relative; }
 .edges { position: absolute; left: 0; top: 0; pointer-events: none; }
-.layerlbl { position: absolute; top: -12px; font-size: .74rem; color: var(--sub); width: 190px; }
+.layerlbl { position: absolute; top: 4px; font-size: .76rem; font-weight: 600; color: var(--sub); width: 190px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.layerline { position: absolute; top: 28px; height: 1px; background: var(--line); opacity: .6; }
 .tnode { position: absolute; border: 1.5px solid var(--line); border-radius: 11px; background: var(--card);
   padding: 7px 10px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between;
   transition: border-color .15s, transform .1s; }
