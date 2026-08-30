@@ -68,6 +68,21 @@ try:
         pg.wait_for_timeout(300)
         check('节点详情与练本章入口', pg.locator('.detail').count() == 1 and pg.locator('button:has-text("练本章题")').count() == 1)
         (os.path.isdir(os.environ.get('SQ_SHOTS', 'D:/PLC/s7-200/题库资料/shots')) and pg.screenshot(path=os.path.join(os.environ.get('SQ_SHOTS', 'D:/PLC/s7-200/题库资料/shots'), '11_学习模式.png')))
+
+        # M9 重难点专题（PID：时间轴 + 三分量 + 互动仿真 + 落地 + 考点）
+        pg.click('.side button:has-text("重难点")')
+        pg.wait_for_timeout(700)
+        check('PID专题时间轴8站', pg.locator('.tli').count() == 8)
+        check('三分量对照卡', pg.locator('.pcard').count() == 4)
+        check('落地事实带出处', pg.locator('.land').count() >= 5 and pg.locator('.lref').count() >= 5)
+        check('互动仿真曲线渲染', pg.locator('.pidlab .pvline').count() == 1 and pg.locator('.pidlab .preset').count() == 5)
+        pg.locator('.pidlab .preset').nth(2).click()
+        pg.wait_for_timeout(300)
+        check('预设切换指标更新', pg.locator('.pidlab .metric').count() == 3)
+        check('考点聚焦清单', pg.locator('.exam li').count() >= 6)
+        shots = os.environ.get('SQ_SHOTS', 'D:/PLC/s7-200/题库资料/shots')
+        if os.path.isdir(shots):
+            pg.screenshot(path=os.path.join(shots, '12_重难点专题.png'))
         b.close()
 finally:
     # Windows: terminate() 只杀 npm 外壳，node(vite) 子进程会残留占住 1420 端口——按进程树击杀

@@ -4,6 +4,7 @@ import { store } from './store'
 import HomeView from './views/HomeView.vue'
 import StudyView from './views/StudyView.vue'
 import TechTreeView from './views/TechTreeView.vue'
+import TopicView from './views/TopicView.vue'
 import PracticeView from './views/PracticeView.vue'
 import ExamView from './views/ExamView.vue'
 import ComposeView from './views/ComposeView.vue'
@@ -18,7 +19,7 @@ import BankAdminView from './views/BankAdminView.vue'
 import PrintPaperView from './views/PrintPaperView.vue'
 
 const views: Record<string, any> = {
-  home: HomeView, study: StudyView, tree: TechTreeView, practice: PracticeView, exam: ExamView, compose: ComposeView, session: SessionView,
+  home: HomeView, study: StudyView, tree: TechTreeView, topic: TopicView, practice: PracticeView, exam: ExamView, compose: ComposeView, session: SessionView,
   result: ResultView, wrong: WrongView, history: HistoryView, browse: BrowseView, docs: DocsView,
   bankadmin: BankAdminView, print: PrintPaperView, settings: SettingsView,
 }
@@ -27,6 +28,7 @@ const navs = [
   { key: 'home', icon: '🏠', label: '首页' },
   { key: 'study', icon: '📖', label: '学习' },
   { key: 'tree', icon: '🌳', label: '技能树' },
+  { key: 'topic', icon: '🎯', label: '重难点' },
   { key: 'practice', icon: '📚', label: '练习' },
   { key: 'docs', icon: '📇', label: '资料' },
   { key: 'exam', icon: '📝', label: '考试' },

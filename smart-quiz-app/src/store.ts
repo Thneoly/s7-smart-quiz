@@ -15,6 +15,7 @@ export interface SessionCtx {
 
 export const store = reactive({
   view: 'home' as string,
+  topicId: null as string | null,
   params: {} as Record<string, any>,
   sessionCtx: null as SessionCtx | null,
   lastResultId: null as number | null,
