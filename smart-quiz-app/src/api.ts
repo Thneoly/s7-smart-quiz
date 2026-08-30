@@ -52,7 +52,10 @@ export const api = {
   papers: () => invoke<PaperInfo[]>('list_papers'),
   paperQids: (paperId: number) => invoke<QID[]>('paper_questions', { paperId }),
   questions: (f: { topic_id?: number; qtype?: string; status?: string; search?: string; limit?: number; offset?: number }) =>
-    invoke<QuestionRow[]>('list_questions', f),
+    // 注意：invoke 只认 camelCase 键（Tauri v2 约定）——曾因直传 snake_case 对象导致
+    // topic_id 被静默丢弃，所有"按主题练习"实际下发全量题库（生产独有，mock 不做大小写转换）
+    invoke<QuestionRow[]>('list_questions',
+      { topicId: f.topic_id, qtype: f.qtype, status: f.status, search: f.search, limit: f.limit, offset: f.offset }),
   questionsByIds: (qids: QID[]) => invoke<QuestionRow[]>('get_questions_by_ids', { qids }),
   ftsSpike: (scaleTo = 100000) => invoke<SpikeResult>('fts_spike', { scaleTo }),
 

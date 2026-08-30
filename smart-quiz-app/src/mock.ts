@@ -44,8 +44,10 @@ export async function mock<T>(cmd: string, args?: Record<string, any>): Promise<
     case 'bank_overview':
       return { banks: [{ bank_id: 'smart-core', name: 'S7-200 SMART 认证题库（mock）', version: 1, total: MQUESTIONS.length, active: MQUESTIONS.length, pending: 0, papers: 1 }], topics: MTOPICS } as T
     case 'list_questions': {
+      // 前端已统一 camelCase 传参（Tauri v2 约定），保留 snake_case 兼容读取
+      const topicId = args?.topicId ?? args?.topic_id
       let qs = MQUESTIONS.filter(q => q.status !== 'retired')
-      if (args?.topic_id) qs = qs.filter(q => q.topics.includes(MTOPICS.find(t => t.topic_id === args.topic_id)!.name))
+      if (topicId) qs = qs.filter(q => q.topics.includes(MTOPICS.find(t => t.topic_id === topicId)!.name))
       if (args?.qtype) qs = qs.filter(q => q.qtype === args.qtype)
       if (args?.status) qs = qs.filter(q => q.status === args.status)
       if (args?.search) qs = qs.filter(q => (q.stem + q.explain).includes(args.search))
