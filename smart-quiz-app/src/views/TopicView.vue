@@ -14,6 +14,7 @@ interface Topic {
   landing: { title: string; text: string; ref: string }[]
   exam: string[]
   chapter_no: number; practice_topic: string; lab: string
+  timeline_title?: string; timeline_intro?: string; problem_title?: string; landing_title?: string
   lab_title?: string; lab_intro?: string
   lab_cases?: { q: string; ans: string; why: string }[]
 }
@@ -51,8 +52,8 @@ onMounted(async () => { ov.value = await api.overview().catch(() => null) })
 
   <!-- ① 时代与衍化：时间轴 -->
   <div class="card">
-    <h3>🕰️ 它从哪里来：两个世纪，一条主线</h3>
-    <p class="hint" style="margin-bottom:12px">每一站都在回答同一个问题的不同侧面：<b>怎么让机器自己稳住，还稳得又快又准。</b></p>
+    <h3>{{ cur.timeline_title ?? '🕰️ 它从哪里来' }}</h3>
+    <p class="hint" style="margin-bottom:12px">{{ cur.timeline_intro }}</p>
     <div class="tl">
       <div v-for="(e, i) in cur.timeline" :key="i" class="tli" :class="{ modern: e.year === '今天' }">
         <div class="yr">{{ e.year }}</div>
@@ -67,7 +68,7 @@ onMounted(async () => { ov.value = await api.overview().catch(() => null) })
 
   <!-- ② 解决的问题：三分量 -->
   <div class="card">
-    <h3>🧩 它解决什么问题：P、I、D 各救哪一环</h3>
+    <h3>{{ cur.problem_title ?? '🧩 它解决什么问题' }}</h3>
     <div class="pgrid">
       <div v-for="c in cur.problem" :key="c.sym" class="pcard" :class="{ union: c.sym.length > 1 }">
         <div class="psym">{{ c.sym }}</div>
@@ -93,7 +94,7 @@ onMounted(async () => { ov.value = await api.overview().catch(() => null) })
 
   <!-- ④ 落到 S7-200 SMART -->
   <div class="card">
-    <h3>⚙️ 落到 S7-200 SMART：历史在向导里落款</h3>
+    <h3>{{ cur.landing_title ?? '⚙️ 落到 S7-200 SMART' }}</h3>
     <div v-for="(l, i) in cur.landing" :key="i" class="land">
       <b>{{ l.title }}</b>
       <p>{{ l.text }}</p>

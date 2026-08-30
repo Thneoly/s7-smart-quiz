@@ -84,6 +84,7 @@ try:
         # M9② 重难点专题（继电器输出：SR/ST 选型挑战）
         pg.locator('.tabs button:has-text("继电器输出")').click()
         pg.wait_for_timeout(500)
+        check('继电器页区块标题专题化', pg.locator('.card h3:has-text("四本账")').count() == 1 and pg.locator('.card h3:has-text("P、I、D")').count() == 0)
         check('继电器专题时间轴4站', pg.locator('.tli').count() == 4)
         check('SR/ST对照卡4张', pg.locator('.pcard').count() == 4)
         check('选型挑战8场景', pg.locator('.ccase').count() == 8)
