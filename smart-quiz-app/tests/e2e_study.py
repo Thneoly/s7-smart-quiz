@@ -80,6 +80,19 @@ try:
         pg.wait_for_timeout(300)
         check('预设切换指标更新', pg.locator('.pidlab .metric').count() == 3)
         check('考点聚焦清单', pg.locator('.exam li').count() >= 6)
+
+        # M9② 重难点专题（继电器输出：SR/ST 选型挑战）
+        pg.locator('.tabs button:has-text("继电器输出")').click()
+        pg.wait_for_timeout(500)
+        check('继电器专题时间轴4站', pg.locator('.tli').count() == 4)
+        check('SR/ST对照卡4张', pg.locator('.pcard').count() == 4)
+        check('选型挑战8场景', pg.locator('.ccase').count() == 8)
+        pg.locator('.ccase .copt').first.click()  # 场景①选SR（第一个按钮=SR，正确）
+        pg.wait_for_timeout(300)
+        check('选型判定与理由', pg.locator('.ccase.ok').count() == 1 and pg.locator('.cwhy').count() == 1)
+        pg.locator('.ccase').nth(1).locator('.copt').first.click()  # 场景②选SR（正确答案ST，应判错）
+        pg.wait_for_timeout(300)
+        check('错选呈现正确答案', pg.locator('.ccase.bad').count() == 1)
         shots = os.environ.get('SQ_SHOTS', 'D:/PLC/s7-200/题库资料/shots')
         if os.path.isdir(shots):
             pg.screenshot(path=os.path.join(shots, '12_重难点专题.png'))

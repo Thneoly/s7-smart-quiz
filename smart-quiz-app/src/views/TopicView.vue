@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { api, type Overview } from '../api'
 import { startWithQuestions } from '../session-start'
 import { store } from '../store'
 import topicsJson from '../study/topics.json'
 import PidLab from '../components/PidLab.vue'
+import ChooseLab from '../components/ChooseLab.vue'
 
 interface Topic {
   id: string; icon: string; title: string; sub: string; why: string
@@ -13,10 +14,14 @@ interface Topic {
   landing: { title: string; text: string; ref: string }[]
   exam: string[]
   chapter_no: number; practice_topic: string; lab: string
+  lab_title?: string; lab_intro?: string
+  lab_cases?: { q: string; ans: string; why: string }[]
 }
 const topics = (topicsJson as { topics: Topic[] }).topics
 const cur = computed(() => topics.find(t => t.id === store.topicId) ?? topics[0])
 const ov = ref<Overview | null>(null)
+const picks = ref<Record<number, string>>({})
+watch(() => cur.value.id, () => { picks.value = {} })
 
 function pick(id: string) { store.go('topic'); store.topicId = id }
 
@@ -79,6 +84,11 @@ onMounted(async () => { ov.value = await api.overview().catch(() => null) })
     <h3>🔬 动手实验：把三个参数的脾气看个明白</h3>
     <p class="hint" style="margin-bottom:6px">下面是浏览器里实时运行的一台"虚拟电加热炉"（二阶惯性 + 纯滞后）。按①→③顺序点预设，亲眼看余差怎么来、怎么消、超调怎么被压下去——这比背十遍定义都管用。改完滑块曲线立即重算。</p>
     <PidLab />
+  </div>
+  <div class="card" v-else-if="cur.lab === 'choose' && cur.lab_cases">
+    <h3>{{ cur.lab_title }}</h3>
+    <p class="hint" style="margin-bottom:6px">{{ cur.lab_intro }}</p>
+    <ChooseLab :key="cur.id" :cases="cur.lab_cases as any" v-model:picks="picks" />
   </div>
 
   <!-- ④ 落到 S7-200 SMART -->
