@@ -141,6 +141,9 @@ pub fn import(conn: &Connection, file: &Path, banks_root: &Path, is_builtin: boo
         params![mf.bank.bank_id, mf.bank.name, mf.bank.version, mf.schema_ver, mf.bank.description,
                 is_builtin as i64, asset_root.to_string_lossy(), now]).map_err(|e| e.to_string())?;
 
+    // 主题幂等：重导入前清本库旧主题及其题目关联（防版本升级重复堆积；dashboard 按主题聚合亦依赖 qt 行新鲜）
+    tx.execute("DELETE FROM question_topics WHERE bank_id=?1", params![mf.bank.bank_id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM topics WHERE bank_id=?1", params![mf.bank.bank_id]).map_err(|e| e.to_string())?;
     // 主题（先父后子插入，key->id 映射）
     let mut topic_ids: HashMap<String, i64> = HashMap::new();
     let mut sorted: Vec<&TopicIn> = mf.topics.iter().collect();
@@ -197,7 +200,9 @@ pub struct Overview {
 #[derive(Serialize)]
 pub struct BankStat { pub bank_id: String, pub name: String, pub version: i64, pub total: i64, pub active: i64, pub pending: i64, pub papers: i64 }
 #[derive(Serialize)]
-pub struct TopicStat { pub topic_id: i64, pub name: String, pub total: i64, pub active: i64 }
+pub struct TopicStat { pub topic_id: i64, pub name: String, pub total: i64, pub active: i64,
+    /// 父主题 id（真题卷等分组主题的子项非 null）——练习页据此只展示学科主题
+    pub parent_id: Option<i64> }
 
 pub fn overview(conn: &Connection) -> Result<Overview, String> {
     let mut banks = Vec::new();
@@ -217,11 +222,11 @@ pub fn overview(conn: &Connection) -> Result<Overview, String> {
 
     let mut topics = Vec::new();
     let mut stmt = conn.prepare(
-        "SELECT t.topic_id,t.name,
+        "SELECT t.topic_id,t.name,t.parent_id,
             (SELECT COUNT(*) FROM question_topics qt JOIN questions q ON q.bank_id=qt.bank_id AND q.qid=qt.qid WHERE qt.topic_id=t.topic_id),
             (SELECT COUNT(*) FROM question_topics qt JOIN questions q ON q.bank_id=qt.bank_id AND q.qid=qt.qid WHERE qt.topic_id=t.topic_id AND q.status='active')
          FROM topics t ORDER BY t.sort_order").map_err(|e| e.to_string())?;
-    let rows = stmt.query_map([], |r| Ok(TopicStat { topic_id: r.get(0)?, name: r.get(1)?, total: r.get(2)?, active: r.get(3)? }))
+    let rows = stmt.query_map([], |r| Ok(TopicStat { topic_id: r.get(0)?, name: r.get(1)?, parent_id: r.get(2)?, total: r.get(3)?, active: r.get(4)? }))
         .map_err(|e| e.to_string())?;
     for t in rows { topics.push(t.map_err(|e| e.to_string())?); }
     Ok(Overview { banks, topics })
@@ -429,6 +434,8 @@ mod tests {
         let n_pq: i64 = conn.query_row("SELECT COUNT(*) FROM paper_questions", [], |r| r.get(0)).unwrap();
         assert_eq!(n_papers, 5, "重导入后试卷应仍为 5 套");
         assert_eq!(n_pq, 350, "重导入后试卷-题目关联应仍为 350 条");
+        let n_topics: i64 = conn.query_row("SELECT COUNT(*) FROM topics", [], |r| r.get(0)).unwrap();
+        assert_eq!(n_topics, 16, "重导入后主题应仍为 16 个（10学科+真题卷父+5卷，防重复堆积）");
         std::fs::remove_dir_all(&tmp).ok();
     }
 

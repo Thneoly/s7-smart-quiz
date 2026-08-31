@@ -22,6 +22,8 @@ def main():
         if name not in topics:
             topics[name] = {'topic_key': name, 'name': name.split('/')[-1], 'parent': parent}
         return name
+    # 真题卷分组父主题：练习中心据此只展示学科主题（真题卷只在考试 tab 提供）
+    add_topic('真题卷')
 
     # 344 题库题
     for i, q in enumerate(bank, 1):
@@ -43,7 +45,7 @@ def main():
                 line = line.strip()
                 if line:
                     a = json.loads(line); ans[a['n']] = a
-        paper_t = add_topic(f'真题卷/{name}')
+        paper_t = add_topic(f'真题卷/{name}', '真题卷')
         items = []
         for it in p['items']:
             if it['type'] == 'fill': continue
@@ -68,7 +70,7 @@ def main():
     manifest = {
         'format': 'smartbank', 'schema_ver': 1,
         'bank': {'bank_id': 'smart-core', 'name': 'S7-200 SMART 认证题库',
-                 'version': 5, 'description': '西门子S7-200 SMART初级认证：10主题344题+A~E五套模拟卷350题（v5：14题按手册裁决，官方答案存档official_answer）'},
+                 'version': 7, 'description': '西门子S7-200 SMART初级认证：10主题344题+A~E五套模拟卷350题（v7：主题导入幂等+练习页只展示学科主题）'},
         'topics': list(topics.values()),
         'questions': questions,
         'papers': papers_meta,

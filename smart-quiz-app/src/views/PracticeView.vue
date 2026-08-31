@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api, MODE_NAME, type Overview, type QuestionRow, type SessionInfo } from '../api'
 import { startWithQuestions, resumeSession } from '../session-start'
 
 const ov = ref<Overview | null>(null)
 const busy = ref('')
 const randN = ref(30)
+// 只展示学科主题（真题卷 A~E 属考试 tab，不进章节练习/背诵；无题目的分组父主题也隐藏）
+const subjects = computed(() => (ov.value?.topics ?? []).filter(t => !t.parent_id && t.total > 0))
+const subjectNames = computed(() => new Set(subjects.value.map(t => t.name)))
+const onlySubjects = (qs: QuestionRow[]) => qs.filter(q => q.topics.some(t => subjectNames.value.has(t)))
 // 续做：进入练习页即提示未完成会话（非阻塞——新练习照常开新会话，从第 1 题开始）
 const ongoing = ref<SessionInfo[]>([])
 const ansCount = (s: SessionInfo) => Object.keys(s.draft?.picks ?? {}).length
@@ -19,7 +23,7 @@ async function topicPractice(name?: string) {
   busy.value = name ?? '全部'
   try {
     const qs = await api.questions({ topic_id: ov.value?.topics.find(t => t.name === name)?.topic_id, status: 'active', limit: 500 })
-    await startWithQuestions('practice', name ? `章节练习 · ${name}` : '全部顺序练习', shuffleStable(qs))
+    await startWithQuestions('practice', name ? `章节练习 · ${name}` : '全部顺序练习', shuffleStable(name ? qs : onlySubjects(qs)))
   } finally { busy.value = '' }
 }
 async function randomPractice() {
@@ -90,7 +94,7 @@ onMounted(async () => {
     <h3>📖 章节练习 <span class="hint">即时判分 · 答错自动进错题本与复习计划</span></h3>
     <div class="chips" style="display:flex;flex-wrap:wrap;gap:8px">
       <button class="chip" :disabled="!!busy" @click="topicPractice()">全部主题</button>
-      <button v-for="t in ov?.topics ?? []" :key="t.topic_id" class="chip" :disabled="!!busy"
+      <button v-for="t in subjects" :key="t.topic_id" class="chip" :disabled="!!busy"
         @click="topicPractice(t.name)">{{ t.name }}<small>{{ t.active }}</small></button>
     </div>
   </div>
@@ -110,7 +114,7 @@ onMounted(async () => {
     <h3>👀 背诵模式（按主题）</h3>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
       <button class="chip" @click="recite()">全部</button>
-      <button v-for="t in ov?.topics ?? []" :key="t.topic_id" class="chip" @click="recite(t.name)">{{ t.name }}</button>
+      <button v-for="t in subjects" :key="t.topic_id" class="chip" @click="recite(t.name)">{{ t.name }}</button>
     </div>
   </div>
   <div v-if="busy" class="empty">正在准备题目…</div>

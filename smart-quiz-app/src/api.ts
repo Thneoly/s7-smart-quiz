@@ -18,7 +18,7 @@ export function assetUrl(bankId: string, relPath: string): string {
 
 // ---------- 类型 ----------
 export interface BankStat { bank_id: string; name: string; version: number; total: number; active: number; pending: number; papers: number }
-export interface TopicStat { topic_id: number; name: string; total: number; active: number }
+export interface TopicStat { topic_id: number; name: string; total: number; active: number; parent_id?: number | null }
 export interface Overview { banks: BankStat[]; topics: TopicStat[] }
 export interface QuestionRow {
   bank_id: string; qid: string; qtype: string; stem: string; img_path: string | null
