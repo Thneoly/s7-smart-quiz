@@ -400,12 +400,13 @@ mod tests {
         let ov = overview(&conn).unwrap();
         assert_eq!(ov.banks.len(), 1);
         assert_eq!(ov.banks[0].total, 694);
-        assert_eq!(ov.banks[0].active, 637);
-        assert_eq!(ov.banks[0].pending, 57);
+        // v2 种子：A~E 卷答案经官方满分卷校准，原 57 道待复审题全部转正
+        assert_eq!(ov.banks[0].active, 694);
+        assert_eq!(ov.banks[0].pending, 0);
 
         // 复索验证 pending_review 隔离
         let act = list_questions(&conn, None, None, Some("active".into()), None, 1000, 0).unwrap();
-        assert_eq!(act.len(), 637);
+        assert_eq!(act.len(), 694);
         assert!(act.iter().all(|q| q.status == "active"));
 
         // 图片题存在且指向 bank 内相对路径
