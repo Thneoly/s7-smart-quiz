@@ -169,6 +169,10 @@ pub fn import(conn: &Connection, file: &Path, banks_root: &Path, is_builtin: boo
         }
     }
 
+    // 试卷幂等：重导入（版本升级）前先清本库旧试卷及其题目关联，防止同名试卷重复堆积。
+    // sessions.paper_id 无外键仅作来源记录，断链不影响续做（resume 走 qid_list）。
+    tx.execute("DELETE FROM paper_questions WHERE bank_id=?1", params![mf.bank.bank_id]).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM papers WHERE bank_id=?1", params![mf.bank.bank_id]).map_err(|e| e.to_string())?;
     for p in &mf.papers {
         tx.execute("INSERT INTO papers(bank_id,name,source_url,description,is_builtin) VALUES(?,?,?,?,1)",
             params![mf.bank.bank_id, p.name, p.source_url, p.title]).map_err(|e| e.to_string())?;
@@ -416,6 +420,15 @@ mod tests {
         // 幂等：同版本重导入 skipped
         let r2 = import(&conn, &seed, &tmp.join("banks"), true).unwrap();
         assert!(r2.skipped);
+
+        // 幂等：版本升级触发重导入时试卷不得重复堆积（曾出现 5 套变 10 套）
+        conn.execute("UPDATE banks SET version=1 WHERE bank_id='smart-core'", []).unwrap();
+        let r3 = import(&conn, &seed, &tmp.join("banks"), true).unwrap();
+        assert!(!r3.skipped);
+        let n_papers: i64 = conn.query_row("SELECT COUNT(*) FROM papers", [], |r| r.get(0)).unwrap();
+        let n_pq: i64 = conn.query_row("SELECT COUNT(*) FROM paper_questions", [], |r| r.get(0)).unwrap();
+        assert_eq!(n_papers, 5, "重导入后试卷应仍为 5 套");
+        assert_eq!(n_pq, 350, "重导入后试卷-题目关联应仍为 350 条");
         std::fs::remove_dir_all(&tmp).ok();
     }
 
