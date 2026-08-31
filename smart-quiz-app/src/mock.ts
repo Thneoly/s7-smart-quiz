@@ -100,7 +100,7 @@ export async function mock<T>(cmd: string, args?: Record<string, any>): Promise<
       mdb.records[s.session_id] = recs
       s.finished_at = new Date().toISOString()
       s.scored_qty = scored; s.correct_qty = correct
-      s.score = scored ? Math.round((correct / scored) * 10000) / 100 : null
+      s.score = scored ? Math.round((correct / scored) * 100) : null
       mockPersist()
       return s as T
     }

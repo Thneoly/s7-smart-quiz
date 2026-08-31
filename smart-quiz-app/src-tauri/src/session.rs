@@ -201,7 +201,8 @@ pub fn finish_session(user: &Connection, bankconn: &Connection, session_id: i64)
             }
         }
     }
-    let score = if scored > 0 { Some((correct as f64 / scored as f64) * 100.0) } else { None };
+    // 分数取整（百分制四舍五入，避免 82.85714285714286 这类尾数）
+    let score = if scored > 0 { Some(((correct as f64 / scored as f64) * 100.0).round()) } else { None };
     let duration = (chrono::Utc::now() - chrono::DateTime::parse_from_rfc3339(&s.started_at).map_err(|e| e.to_string())?
         .with_timezone(&chrono::Utc)).num_milliseconds();
     // finished_at IS NULL 守卫：与放弃/另一进程交卷竞态时 0 行生效，拒收本次事务防孤儿 records
@@ -583,7 +584,8 @@ mod tests {
         assert_eq!(fin.total_qty, 3);
         assert_eq!(fin.scored_qty, 3);
         assert_eq!(fin.correct_qty, 1);
-        assert!((fin.score.unwrap() - 100.0 / 3.0).abs() < 0.01);
+        // 分数取整（1/3 正确 → 33 分）
+        assert_eq!(fin.score.unwrap(), 33.0);
 
         // 记录落库
         let n: i64 = user.query_row("SELECT COUNT(*) FROM answer_records WHERE session_id=?1", params![sid], |r| r.get(0)).unwrap();
