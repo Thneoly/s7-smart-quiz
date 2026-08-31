@@ -18,6 +18,26 @@ let saveTimer: number | null = null
 let tickTimer: number | null = null
 const now = ref(Date.now())
 
+// ⚡自动下一题（仅练习模式）：答对 1s / 答错 2.5s（留看解析）后自动前进，默认关闭、记忆偏好
+const autoNext = ref(localStorage.getItem('sq_autonext') === '1')
+let autoT: number | null = null
+function toggleAutoNext() {
+  autoNext.value = !autoNext.value
+  localStorage.setItem('sq_autonext', autoNext.value ? '1' : '0')
+  if (!autoNext.value && autoT) { clearTimeout(autoT); autoT = null }
+}
+function scheduleAutoNext(good: boolean | null) {
+  if (!autoNext.value || ctx.value?.examMode || ctx.value?.recite) return
+  if (autoT) clearTimeout(autoT)
+  const delay = good === false ? 2500 : good === true ? 1000 : 1500
+  autoT = window.setTimeout(() => {
+    autoT = null
+    const c = ctx.value
+    if (c && autoNext.value && c.idx < c.questions.length - 1) nav(1)
+  }, delay)
+}
+function clearAutoNext() { if (autoT) { clearTimeout(autoT); autoT = null } }
+
 const picked = computed<string>(() => {
   if (!q.value) return ''
   const p = ctx.value!.draft.picks[key(q.value)]
@@ -43,7 +63,7 @@ function pick(L: string) {
     const cur = c.draft.picks[key(qq)]?.picked ?? ''
     const np = isMulti.value ? toggle(cur, L) : L
     c.draft.picks[key(qq)] = { picked: np }
-    if (!isMulti.value) { locked.value = true; localGrade.value = graded.value }
+    if (!isMulti.value) { locked.value = true; localGrade.value = graded.value; scheduleAutoNext(localGrade.value) }
   }
   scheduleSave()
 }
@@ -51,12 +71,14 @@ function toggle(cur: string, L: string) { return cur.includes(L) ? cur.replace(L
 function submitMulti() {
   if (!pickedArr.value.length) { alert('请先选择选项'); return }
   locked.value = true; localGrade.value = graded.value
+  scheduleAutoNext(localGrade.value)
   scheduleSave(true)
 }
 function nav(d: number) {
   const c = ctx.value!
   const ni = c.idx + d
   if (ni < 0 || ni >= c.questions.length) return
+  clearAutoNext()
   c.idx = ni
   locked.value = false; localGrade.value = null; showAns.value = false
   c.draft.idx = ni
@@ -150,6 +172,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (saveTimer) clearInterval(saveTimer)
   if (tickTimer) clearInterval(tickTimer)
+  clearAutoNext()
   flushPending()
   window.removeEventListener('pagehide', flushPending)
 })
@@ -184,6 +207,8 @@ const answeredCount = computed(() => {
         <div class="pbar"><i :style="{ width: progressPct + '%' }"></i></div>
       </div>
       <div v-if="ctx.examMode" class="timer" :class="{ urgent: (ctx.remainingSec ?? 1) < 300 }">⏱ {{ fmt(ctx.remainingSec ?? 0) }}</div>
+      <button v-if="!ctx.examMode && !ctx.recite" class="btn ghost autonext" :class="{ on: autoNext }"
+        :title="autoNext ? '自动下一题已开：答对1秒/答错2.5秒后前进' : '开启自动下一题（答完自动前进）'" @click="toggleAutoNext">⚡自动</button>
       <button v-if="ctx.examMode" class="btn" @click="sheet = true">答题卡</button>
     </div>
 
@@ -245,7 +270,7 @@ const answeredCount = computed(() => {
         <div class="sgrid">
           <button v-for="(qq, i) in ctx.questions" :key="i" class="cell"
             :class="{ did: ctx.draft.picks[key(qq)]?.picked, mark: ctx.draft.marks[key(qq)], cur: i === ctx.idx }"
-            @click="ctx.idx = i; locked = false; sheet = false; loadNote()">{{ i + 1 }}</button>
+            @click="ctx.idx = i; locked = false; sheet = false; clearAutoNext(); loadNote()">{{ i + 1 }}</button>
         </div>
         <div class="btnrow2">
           <button class="btn pri" @click="finish()">交卷</button>
@@ -281,6 +306,8 @@ const answeredCount = computed(() => {
 .fav.on { color: #f0a020; }
 .stem { font-size: 1.02rem; font-weight: 600; margin-bottom: 12px; white-space: pre-wrap; }
 .qimg { max-width: 100%; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; }
+.autonext { padding: 6px 12px; font-size: .82rem; white-space: nowrap; }
+.autonext.on { background: var(--warn-bg); color: var(--warn); border-color: var(--warn); }
 .opts { display: flex; flex-direction: column; gap: 9px; }
 .opt { display: flex; gap: 10px; border: 1.5px solid var(--line); border-radius: 11px; padding: 11px 13px; cursor: pointer; font-size: .95rem; }
 .opt:hover { border-color: var(--brand); }
