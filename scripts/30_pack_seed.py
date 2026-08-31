@@ -68,7 +68,7 @@ def main():
     manifest = {
         'format': 'smartbank', 'schema_ver': 1,
         'bank': {'bank_id': 'smart-core', 'name': 'S7-200 SMART 认证题库',
-                 'version': 4, 'description': '西门子S7-200 SMART初级认证：10主题344题+A~E五套模拟卷350题（v4：E63按手册修正，SR/RS触发器铁证）'},
+                 'version': 5, 'description': '西门子S7-200 SMART初级认证：10主题344题+A~E五套模拟卷350题（v5：14题按手册裁决，官方答案存档official_answer）'},
         'topics': list(topics.values()),
         'questions': questions,
         'papers': papers_meta,
