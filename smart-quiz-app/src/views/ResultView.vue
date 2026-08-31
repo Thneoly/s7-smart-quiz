@@ -11,6 +11,11 @@ const sid = computed(() => store.params.id ?? store.lastResultId)
 
 onMounted(async () => { if (sid.value) detail.value = await api.sessionDetail(sid.value) })
 const wrongs = computed(() => (detail.value?.records ?? []).filter(r => r.is_correct === false))
+// 逐题回顾（答错在前）：携带原题号（会话题序），排序后仍显示做题时的编号
+const review = computed(() => {
+  const withIdx = (detail.value?.records ?? []).map((r, orig) => ({ r, orig }))
+  return [...withIdx.filter(x => x.r.is_correct === false), ...withIdx.filter(x => x.r.is_correct !== false)]
+})
 const noscored = computed(() => (detail.value?.records ?? []).filter(r => r.is_correct === null))
 async function redoWrong() {
   const qs = wrongs.value.map(r => r.question!).filter(Boolean)
@@ -55,25 +60,25 @@ function printPdf() { window.print() }
     <div v-if="noscored.length" class="card"><span class="tag warn"> {{ noscored.length }} 题答案整理中（低置信度），未计入分数</span></div>
     <div class="card">
       <h3>逐题回顾（答错在前）</h3>
-      <div v-for="(r, i) in [...wrongs, ...detail.records.filter(x => x.is_correct !== false)]" :key="i" class="qreview" :class="{ bad: r.is_correct === false, ok: r.is_correct === true }">
+      <div v-for="x in review" :key="x.orig" class="qreview" :class="{ bad: x.r.is_correct === false, ok: x.r.is_correct === true }">
         <div class="rvhead">
-          <span>{{ i + 1 }}.</span>
-          <span class="tag" :class="{ multi: r.question?.qtype === 'multi' }">{{ r.question?.qtype === 'multi' ? '多选' : '单选' }}</span>
-          <span v-if="r.is_correct === true" style="color:var(--ok)">✓</span>
-          <span v-else-if="r.is_correct === false" style="color:var(--bad)">✗ 你答 {{ r.picked || '未答' }} · 正确 {{ r.question?.answer }}</span>
+          <span>{{ x.orig + 1 }}.</span>
+          <span class="tag" :class="{ multi: x.r.question?.qtype === 'multi' }">{{ x.r.question?.qtype === 'multi' ? '多选' : '单选' }}</span>
+          <span v-if="x.r.is_correct === true" style="color:var(--ok)">✓</span>
+          <span v-else-if="x.r.is_correct === false" style="color:var(--bad)">✗ 你答 {{ x.r.picked || '未答' }} · 正确 {{ x.r.question?.answer }}</span>
           <span v-else class="tag warn">不计分</span>
         </div>
-        <div class="rvstem">{{ r.question?.stem }}</div>
-        <img v-if="r.question?.img_path" :src="assetUrl(r.question.bank_id, r.question.img_path!)" style="max-width:100%;border-radius:9px;border:1px solid var(--line);margin:6px 0" />
-        <div v-if="expandAll || r.is_correct === false" class="rvdetail">
+        <div class="rvstem">{{ x.r.question?.stem }}</div>
+        <img v-if="x.r.question?.img_path" :src="assetUrl(x.r.question.bank_id, x.r.question.img_path!)" style="max-width:100%;border-radius:9px;border:1px solid var(--line);margin:6px 0" />
+        <div v-if="expandAll || x.r.is_correct === false" class="rvdetail">
           <div class="opts-mini">
-            <div v-for="(o, j) in r.question?.options ?? []" :key="j"
-              :class="{ r: (r.question?.answer ?? '').includes(String.fromCharCode(65 + j)), p: (r.picked ?? '').includes(String.fromCharCode(65 + j)) }">
+            <div v-for="(o, j) in x.r.question?.options ?? []" :key="j"
+              :class="{ r: (x.r.question?.answer ?? '').includes(String.fromCharCode(65 + j)), p: (x.r.picked ?? '').includes(String.fromCharCode(65 + j)) }">
               <b>{{ String.fromCharCode(65 + j) }}</b>{{ o.replace(/^[A-H][、.．,，]\s*/, '') }}
             </div>
           </div>
-          <div v-if="r.question?.explain" class="hint">解析：{{ r.question.explain }}</div>
-          <div v-if="r.question?.source" class="src">出处：{{ r.question.source }}</div>
+          <div v-if="x.r.question?.explain" class="hint">解析：{{ x.r.question.explain }}</div>
+          <div v-if="x.r.question?.source" class="src">出处：{{ x.r.question.source }}</div>
         </div>
       </div>
     </div>

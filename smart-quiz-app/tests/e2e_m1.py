@@ -82,6 +82,16 @@ try:
         pg.wait_for_timeout(1200)
         body = pg.text_content('.main') or ''
         check('结果页得分显示', '分' in body and ('答对' in body))
+        # 逐题回顾（答错在前）保持原题号：乱序展示但题号集合=1..N 且错题确实排前
+        nums = pg.evaluate('''() => [...document.querySelectorAll('.qreview .rvhead span:first-child')].map(e => parseInt(e.textContent))''')
+        check('回顾题号为原题号集合', sorted(nums) == list(range(1, len(nums) + 1)))
+        first_wrong_is_orig = pg.evaluate('''() => {
+          const cards = [...document.querySelectorAll('.qreview')]
+          const badCount = cards.filter(c => c.classList.contains('bad')).length
+          if (!badCount) return true
+          return cards.slice(0, badCount).every(c => c.classList.contains('bad'))
+        }''')
+        check('答错题排在前面', first_wrong_is_orig)
 
         # 3 错题本（有答错题）
         pg.click('.side button:has-text("错题本")')
