@@ -105,11 +105,13 @@ pub fn import(conn: &Connection, file: &Path, banks_root: &Path, is_builtin: boo
         return Err(format!("不支持的格式 {} v{}", mf.format, mf.schema_ver));
     }
 
-    // 幂等：同 bank 同版本已导入则跳过
-    let exists: Option<i64> = conn.query_row(
-        "SELECT 1 FROM banks WHERE bank_id=?1 AND version=?2", params![mf.bank.bank_id, mf.bank.version],
-        |_| Ok(1)).ok();
-    if exists.is_some() {
+    // 幂等 + 降级护栏：已装版本 ≥ 种子版本即跳过——旧 exe 携带的旧种子
+    // 不得把升级后的库打回旧版并堆积重复（topics/papers 历史事故的根治）
+    let installed: Option<i64> = conn.query_row(
+        "SELECT version FROM banks WHERE bank_id=?1", params![mf.bank.bank_id],
+        |r| r.get(0)).ok();
+    if installed.is_some_and(|v| v >= mf.bank.version) {
+        log::info!(target: "seed", "跳过导入 {} v{}（已装 v{}，仅允许升级）", mf.bank.bank_id, mf.bank.version, installed.unwrap_or(0));
         return Ok(ImportReport { bank_id: mf.bank.bank_id, bank_name: mf.bank.name,
             questions: 0, papers: 0, images: 0, skipped: true});
     }
@@ -425,6 +427,11 @@ mod tests {
         // 幂等：同版本重导入 skipped
         let r2 = import(&conn, &seed, &tmp.join("banks"), true).unwrap();
         assert!(r2.skipped);
+
+        // 降级护栏：库版本高于种子版本时拒绝导入（旧 exe 旧种子不得覆盖新库）
+        conn.execute("UPDATE banks SET version=99 WHERE bank_id='smart-core'", []).unwrap();
+        let r_low = import(&conn, &seed, &tmp.join("banks"), true).unwrap();
+        assert!(r_low.skipped, "降级导入应被拒绝");
 
         // 幂等：版本升级触发重导入时试卷不得重复堆积（曾出现 5 套变 10 套）
         conn.execute("UPDATE banks SET version=1 WHERE bank_id='smart-core'", []).unwrap();
